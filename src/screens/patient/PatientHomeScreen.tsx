@@ -44,10 +44,6 @@ export default function PatientHomeScreen() {
     await logout();
   };
 
-  const upcoming = appointments.filter(
-    (a) => ['PENDING', 'APPROVED'].includes(String(a.status || '').toUpperCase())
-  );
-
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -74,11 +70,6 @@ export default function PatientHomeScreen() {
             <Text style={styles.statNumber}>{appointments.length}</Text>
             <Text style={styles.statLabel}>Total Appointments</Text>
           </View>
-          <View style={styles.statCard}>
-            <Ionicons name="time" size={24} color={colors.primary} />
-            <Text style={styles.statNumber}>{upcoming.length}</Text>
-            <Text style={styles.statLabel}>Upcoming</Text>
-          </View>
         </View>
 
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -97,10 +88,10 @@ export default function PatientHomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {upcoming.length > 0 && (
+        {appointments.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
-            {upcoming.slice(0, 3).map((appt, idx) => (
+            <Text style={styles.sectionTitle}>All Appointments</Text>
+            {appointments.map((appt: Record<string, unknown>, idx: number) => (
               <View key={String(appt.id || idx)} style={styles.apptCard}>
                 <Text style={styles.apptDoctor}>{String(appt.doctor_name || 'Doctor')}</Text>
                 <Text style={styles.apptDate}>
