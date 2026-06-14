@@ -1,13 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { PatientTabParamList } from '../../navigation/types';
 import { patientApi } from '../../services/patientApi';
 import { getErrorMessage } from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 
 export default function PatientHomeScreen() {
+  const navigation = useNavigation<NavigationProp<PatientTabParamList>>();
+  const { logout } = useAuth();
   const [profile, setProfile] = useState<Record<string, string> | null>(null);
   const [appointments, setAppointments] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +38,12 @@ export default function PatientHomeScreen() {
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
+  const handleLogout = async () => {
+    console.log('PatientHomeScreen handleLogout called');
+    console.log('Calling logout directly');
+    await logout();
+  };
+
   const upcoming = appointments.filter(
     (a) => ['PENDING', 'APPROVED'].includes(String(a.status || '').toUpperCase())
   );
@@ -45,10 +56,17 @@ export default function PatientHomeScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       >
-        <Text style={styles.greeting}>
-          Hello, {profile?.full_name || 'Patient'}!
-        </Text>
-        <Text style={styles.subGreeting}>Welcome to your health dashboard</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>
+              Hello, {profile?.full_name || 'Patient'}!
+            </Text>
+            <Text style={styles.subGreeting}>Welcome to your health dashboard</Text>
+          </View>
+          <TouchableOpacity style={styles.logoutIconButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
@@ -65,18 +83,18 @@ export default function PatientHomeScreen() {
 
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsRow}>
-          <View style={styles.actionCard}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PatientDoctors')}>
             <Ionicons name="search" size={28} color={colors.primary} />
             <Text style={styles.actionText}>Find Doctors</Text>
-          </View>
-          <View style={styles.actionCard}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PatientAppointments')}>
             <Ionicons name="calendar-outline" size={28} color={colors.primary} />
             <Text style={styles.actionText}>My Appointments</Text>
-          </View>
-          <View style={styles.actionCard}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PatientProfile')}>
             <Ionicons name="person-outline" size={28} color={colors.primary} />
             <Text style={styles.actionText}>My Profile</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {upcoming.length > 0 && (
@@ -101,8 +119,22 @@ export default function PatientHomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
   greeting: { fontSize: 26, fontWeight: '800', color: colors.text },
-  subGreeting: { fontSize: 15, color: colors.textSecondary, marginBottom: spacing.lg, marginTop: 4 },
+  subGreeting: { fontSize: 15, color: colors.textSecondary, marginTop: 4 },
+  logoutIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
   statCard: {
     flex: 1,

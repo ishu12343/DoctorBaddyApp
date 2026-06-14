@@ -13,11 +13,27 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem('token');
+  console.log('apiClient interceptor - URL:', config.url);
+  console.log('apiClient interceptor - Token from AsyncStorage:', token ? 'exists' : 'null');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log('apiClient interceptor - Authorization header set');
+  } else {
+    console.log('apiClient interceptor - No token found, skipping Authorization header');
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => {
+    console.log('apiClient response - URL:', response.config.url, 'Status:', response.status);
+    return response;
+  },
+  (error) => {
+    console.error('apiClient error - URL:', error.config?.url, 'Error:', error.message);
+    return Promise.reject(error);
+  }
+);
 
 export const getErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {

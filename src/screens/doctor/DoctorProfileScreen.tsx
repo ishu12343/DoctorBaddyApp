@@ -66,11 +66,10 @@ export default function DoctorProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: logout },
-    ]);
+ const handleLogout = async () => {
+    console.log('DoctorHomeScreen handleLogout called');
+    console.log('Calling logout directly');
+    await logout();
   };
 
   if (loading) return <LoadingSpinner />;

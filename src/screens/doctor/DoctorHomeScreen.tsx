@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { DoctorTabParamList } from '../../navigation/types';
 import { doctorApi } from '../../services/doctorApi';
 import { getErrorMessage } from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 
 export default function DoctorHomeScreen() {
+  const navigation = useNavigation<NavigationProp<DoctorTabParamList>>();
+  const { logout } = useAuth();
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [stats, setStats] = useState({ today_appointments: 0 });
   const [patientCount, setPatientCount] = useState(0);
@@ -43,6 +48,12 @@ export default function DoctorHomeScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const handleLogout = async () => {
+    console.log('DoctorHomeScreen handleLogout called');
+    console.log('Calling logout directly');
+    await logout();
+  };
+
   if (loading) return <LoadingSpinner />;
 
   const isPending = profile && !profile.approved;
@@ -67,8 +78,15 @@ export default function DoctorHomeScreen() {
           </View>
         )}
 
-        <Text style={styles.greeting}>Dr. {String(profile?.full_name || 'Doctor')}</Text>
-        <Text style={styles.subGreeting}>{String(profile?.specialty || 'Healthcare Professional')}</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Dr. {String(profile?.full_name || 'Doctor')}</Text>
+            <Text style={styles.subGreeting}>{String(profile?.specialty || 'Healthcare Professional')}</Text>
+          </View>
+          <TouchableOpacity style={styles.logoutIconButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
@@ -86,6 +104,22 @@ export default function DoctorHomeScreen() {
             <Text style={styles.statNumber}>{Number(rating.rating).toFixed(1)}</Text>
             <Text style={styles.statLabel}>{rating.reviewCount} reviews</Text>
           </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('DoctorAppointments')}>
+            <Ionicons name="calendar-outline" size={28} color={colors.primary} />
+            <Text style={styles.actionText}>Appointments</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('DoctorPatients')}>
+            <Ionicons name="people-outline" size={28} color={colors.primary} />
+            <Text style={styles.actionText}>Patients</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('DoctorProfile')}>
+            <Ionicons name="person-outline" size={28} color={colors.primary} />
+            <Text style={styles.actionText}>Profile</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.sectionTitle}>Recent Activities</Text>
@@ -111,13 +145,42 @@ const styles = StyleSheet.create({
   alertWarning: { backgroundColor: '#FEF3C7' },
   alertError: { backgroundColor: '#FEE2E2' },
   alertText: { fontSize: 14, fontWeight: '600', color: colors.text, flex: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
   greeting: { fontSize: 26, fontWeight: '800', color: colors.text },
-  subGreeting: { fontSize: 15, color: colors.textSecondary, marginBottom: spacing.lg, marginTop: 4 },
+  subGreeting: { fontSize: 15, color: colors.textSecondary, marginTop: 4 },
+  logoutIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
   statCard: { flex: 1, backgroundColor: colors.white, borderRadius: borderRadius.md, padding: spacing.md, alignItems: 'center' },
   statNumber: { fontSize: 22, fontWeight: '800', color: colors.primary, marginTop: spacing.xs },
   statLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.md },
+  actionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  actionCard: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    gap: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  actionText: { fontSize: 11, fontWeight: '600', color: colors.text, textAlign: 'center' },
   activityCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.white, padding: spacing.md, borderRadius: borderRadius.sm, marginBottom: spacing.sm },
   activityText: { fontSize: 14, color: colors.text, flex: 1 },
   emptyText: { fontSize: 14, color: colors.textSecondary, fontStyle: 'italic' },

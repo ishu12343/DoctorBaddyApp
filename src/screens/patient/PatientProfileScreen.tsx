@@ -81,11 +81,10 @@ export default function PatientProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: logout },
-    ]);
+   const handleLogout = async () => {
+    console.log('PatientHomeScreen handleLogout called');
+    console.log('Calling logout directly');
+    await logout();
   };
 
   if (loading) return <LoadingSpinner />;

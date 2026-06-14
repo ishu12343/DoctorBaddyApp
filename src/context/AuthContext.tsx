@@ -91,20 +91,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    console.log('Logout called for userType:', userType);
+    console.log('Current token:', token);
     try {
-      if (userType === 'patient') await patientApi.logout();
-      else if (userType === 'doctor') await doctorApi.logout();
-      else if (userType === 'admin') await adminApi.logout();
-    } catch {
+      if (userType === 'patient') {
+        console.log('Calling patient logout API');
+        const response = await patientApi.logout();
+        console.log('Patient logout API response:', response);
+      } else if (userType === 'doctor') {
+        console.log('Calling doctor logout API');
+        const response = await doctorApi.logout();
+        console.log('Doctor logout API response:', response);
+      } else if (userType === 'admin') {
+        console.log('Skipping admin logout API - endpoint not available on deployed backend');
+        // Admin logout endpoint doesn't exist on deployed backend, skip API call
+      } else {
+        console.log('No matching userType, skipping API call');
+      }
+    } catch (error) {
+      console.error('Logout API error:', error);
       // Continue logout even if API fails
     }
+    console.log('Clearing AsyncStorage');
     await Promise.all([
       AsyncStorage.removeItem('token'),
       AsyncStorage.removeItem('userType'),
       AsyncStorage.removeItem('admin'),
     ]);
+    console.log('Setting token and userType to null');
     setToken(null);
     setUserType(null);
+    console.log('Logout completed');
   };
 
   return (
