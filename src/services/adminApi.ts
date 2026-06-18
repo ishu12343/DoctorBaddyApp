@@ -27,5 +27,5 @@ export const adminApi = {
 
   activatePatient: (id: number) => apiClient.put(`api/admin/patients/${id}/activate`, {}),
 
-  deactivatePatient: (id: number) => apiClient.put(`admin/patients/${id}/deactivate`, {}),
+  deactivatePatient: (id: number) => apiClient.put(`api/admin/patients/${id}/deactivate`, {}),
 };

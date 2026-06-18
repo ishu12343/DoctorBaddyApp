@@ -24,7 +24,7 @@ interface Patient {
   full_name?: string;
   email?: string;
   mobile?: string;
-  active?: boolean;
+  is_active?: boolean;
   status?: string;
 }
 
@@ -49,7 +49,7 @@ export default function AdminPatientsScreen() {
   useEffect(() => { loadPatients(); }, [loadPatients]);
 
   const getPatientStatus = (pat: Patient) => {
-    if (pat.active === false || pat.status === 'INACTIVE') return 'INACTIVE';
+    if (pat.is_active === false || pat.status === 'INACTIVE') return 'INACTIVE';
     return 'ACTIVE';
   };
 
@@ -109,7 +109,7 @@ export default function AdminPatientsScreen() {
                 ) : null
               )}
               <View style={styles.modalActions}>
-                {selectedPatient?.active !== false ? (
+                {selectedPatient?.is_active !== false ? (
                   <AppButton title="Deactivate" variant="danger" onPress={() => handleAction(Number(selectedPatient?.id), 'deactivate')} style={styles.modalBtn} />
                 ) : (
                   <AppButton title="Activate" onPress={() => handleAction(Number(selectedPatient?.id), 'activate')} style={styles.modalBtn} />
