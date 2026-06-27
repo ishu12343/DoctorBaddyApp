@@ -7,8 +7,13 @@ import {
   Modal,
   Alert,
   RefreshControl,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TextInput } from 'react-native-web';
 import { patientApi } from '../../services/patientApi';
 import { getErrorMessage } from '../../services/apiClient';
 import AppInput from '../../components/AppInput';
@@ -24,8 +29,17 @@ interface Appointment {
   doctor_name?: string;
   appointment_date?: string;
   appointment_time?: string;
+  appointment_datetime?: string;
   status?: string;
   reason?: string;
+  has_rating?: number;
+  specialty?: string;
+  clinic_name?: string;
+  doctor_mobile?: string;
+  created_at?: string;
+  available_days?: string;
+  available_from?: string;
+  available_to?: string;
 }
 
 export default function PatientAppointmentsScreen() {
@@ -40,6 +54,9 @@ export default function PatientAppointmentsScreen() {
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -82,12 +99,71 @@ export default function PatientAppointmentsScreen() {
         reason: rescheduleReason,
       });
       setRescheduleAppt(null);
+      setNewDate('');
+      setNewTime('');
+      setRescheduleReason('');
       loadAppointments();
       Alert.alert('Success', 'Appointment rescheduled');
     } catch (err) {
       Alert.alert('Error', getErrorMessage(err));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (event.type === 'set' && selectedDate) {
+      const date = selectedDate.toISOString().split('T')[0];
+      setNewDate(date);
+    }
+  };
+
+  const isDayAvailable = (date: Date): boolean => {
+    if (!rescheduleAppt?.available_days) return true;
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayName = dayNames[date.getDay()];
+    return rescheduleAppt.available_days.includes(dayName);
+  };
+
+  const getAvailableDates = (): Date[] => {
+    const dates: Date[] = [];
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setMonth(maxDate.getMonth() + 3); // Show 3 months ahead
+
+    for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
+      if (isDayAvailable(d)) {
+        dates.push(new Date(d));
+      }
+    }
+    return dates;
+  };
+
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    if (event.type === 'set' && selectedTime) {
+      const hours = selectedTime.getHours().toString().padStart(2, '0');
+      const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+      const timeStr = `${hours}:${minutes}`;
+      
+      // Validate against doctor's available hours
+      if (rescheduleAppt?.available_from && rescheduleAppt?.available_to) {
+        const fromTime = parseInt(rescheduleAppt.available_from.replace(':', ''));
+        const toTime = parseInt(rescheduleAppt.available_to.replace(':', ''));
+        const selectedTimeNum = parseInt(timeStr.replace(':', ''));
+        
+        if (selectedTimeNum < fromTime || selectedTimeNum > toTime) {
+          Alert.alert('Invalid Time', `Please select a time between ${rescheduleAppt.available_from} and ${rescheduleAppt.available_to}`);
+          return;
+        }
+      }
+      
+      setNewTime(timeStr);
     }
   };
 
@@ -121,10 +197,14 @@ export default function PatientAppointmentsScreen() {
           const status = String(item.status || '').toUpperCase();
           const canCancel = ['PENDING', 'APPROVED'].includes(status);
           const canReschedule = ['PENDING', 'APPROVED'].includes(status);
-          const canRate = status === 'COMPLETED';
+          const canRate = status === 'COMPLETED' && !item.has_rating;
 
           return (
-            <View style={styles.card}>
+            <TouchableOpacity 
+              style={styles.card}
+              onPress={() => setSelectedAppt(item)}
+              activeOpacity={0.7}
+            >
               <View style={styles.cardHeader}>
                 <Text style={styles.doctorName}>{item.doctor_name || 'Doctor'}</Text>
                 <StatusBadge status={status} />
@@ -143,8 +223,13 @@ export default function PatientAppointmentsScreen() {
                 {canRate && (
                   <AppButton title="Rate" variant="secondary" onPress={() => setRateAppt(item)} style={styles.actionBtn} />
                 )}
+                {status === 'COMPLETED' && item.has_rating && (
+                  <View style={styles.ratedBadge}>
+                    <Text style={styles.ratedText}>Rated</Text>
+                  </View>
+                )}
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
@@ -153,11 +238,99 @@ export default function PatientAppointmentsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Reschedule Appointment</Text>
-            <AppInput label="New Date (YYYY-MM-DD)" value={newDate} onChangeText={setNewDate} />
-            <AppInput label="New Time (HH:MM)" value={newTime} onChangeText={setNewTime} />
+            {Platform.OS === 'web' ? (
+              <>
+                <View style={styles.pickerButton}>
+                  <Text style={styles.pickerLabel}>New Date:</Text>
+                  <input 
+                    type="date" 
+                    value={newDate} 
+                    onChange={(e: any) => {
+                      const selectedDate = new Date(e.target.value);
+                      if (isDayAvailable(selectedDate)) {
+                        setNewDate(e.target.value);
+                      } else {
+                        Alert.alert('Invalid Date', `Doctor is not available on this day. Available days: ${rescheduleAppt?.available_days}`);
+                      }
+                    }}
+                    min={new Date().toISOString().split('T')[0]}
+                    style={styles.webInput}
+                  />
+                </View>
+                <View style={styles.pickerButton}>
+                  <Text style={styles.pickerLabel}>New Time:</Text>
+                  <input 
+                    type="time" 
+                    value={newTime} 
+                    onChange={(e: any) => {
+                      const timeStr = e.target.value;
+                      if (rescheduleAppt?.available_from && rescheduleAppt?.available_to) {
+                        const fromTime = parseInt(rescheduleAppt.available_from.replace(':', ''));
+                        const toTime = parseInt(rescheduleAppt.available_to.replace(':', ''));
+                        const selectedTimeNum = parseInt(timeStr.replace(':', ''));
+                        
+                        if (selectedTimeNum < fromTime || selectedTimeNum > toTime) {
+                          Alert.alert('Invalid Time', `Please select a time between ${rescheduleAppt.available_from} and ${rescheduleAppt.available_to}`);
+                          return;
+                        }
+                      }
+                      setNewTime(timeStr);
+                    }}
+                    style={styles.webInput}
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.pickerButton}>
+                  <Text style={styles.pickerLabel}>New Date:</Text>
+                  <Text style={styles.pickerValue}>{newDate || 'Select Date'}</Text>
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={newDate ? new Date(newDate) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event: any, date?: Date) => {
+                      if (Platform.OS === 'android') {
+                        setShowDatePicker(false);
+                      }
+                      if (event.type === 'set' && date) {
+                        if (isDayAvailable(date)) {
+                          const dateStr = date.toISOString().split('T')[0];
+                          setNewDate(dateStr);
+                        } else {
+                          Alert.alert('Invalid Date', `Doctor is not available on this day. Available days: ${rescheduleAppt?.available_days}`);
+                        }
+                      }
+                    }}
+                    minimumDate={new Date()}
+                    style={{ width: '100%' }}
+                  />
+                )}
+                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.pickerButton}>
+                  <Text style={styles.pickerLabel}>New Time:</Text>
+                  <Text style={styles.pickerValue}>{newTime || 'Select Time'}</Text>
+                </TouchableOpacity>
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={newTime ? new Date(`2000-01-01T${newTime}`) : new Date()}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleTimeChange}
+                    style={{ width: '100%' }}
+                  />
+                )}
+              </>
+            )}
             <AppInput label="Reason" value={rescheduleReason} onChangeText={setRescheduleReason} />
             <View style={styles.modalButtons}>
-              <AppButton title="Cancel" variant="outline" onPress={() => setRescheduleAppt(null)} style={styles.modalBtn} />
+              <AppButton title="Cancel" variant="outline" onPress={() => {
+                setRescheduleAppt(null);
+                setNewDate('');
+                setNewTime('');
+                setRescheduleReason('');
+              }} style={styles.modalBtn} />
               <AppButton title="Confirm" onPress={handleReschedule} loading={actionLoading} style={styles.modalBtn} />
             </View>
           </View>
@@ -178,6 +351,76 @@ export default function PatientAppointmentsScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={!!selectedAppt} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ScrollView>
+              <Text style={styles.modalTitle}>Appointment Details</Text>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Doctor:</Text>
+                <Text style={styles.detailValue}>Dr. {selectedAppt?.doctor_name}</Text>
+              </View>
+              {selectedAppt?.specialty && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Specialty:</Text>
+                  <Text style={styles.detailValue}>{selectedAppt.specialty}</Text>
+                </View>
+              )}
+              {selectedAppt?.clinic_name && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Clinic:</Text>
+                  <Text style={styles.detailValue}>{selectedAppt.clinic_name}</Text>
+                </View>
+              )}
+              {selectedAppt?.doctor_mobile && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Contact:</Text>
+                  <Text style={styles.detailValue}>{selectedAppt.doctor_mobile}</Text>
+                </View>
+              )}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Date & Time:</Text>
+                <Text style={styles.detailValue}>{selectedAppt?.appointment_datetime}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status:</Text>
+                <StatusBadge status={String(selectedAppt?.status || '').toUpperCase()} />
+              </View>
+              {selectedAppt?.reason && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Reason:</Text>
+                  <Text style={styles.detailValue}>{selectedAppt.reason}</Text>
+                </View>
+              )}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Booked On:</Text>
+                <Text style={styles.detailValue}>{selectedAppt?.created_at}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Rating Status:</Text>
+                <Text style={styles.detailValue}>
+                  {selectedAppt?.has_rating ? 'Rated' : 'Not Rated'}
+                </Text>
+              </View>
+            </ScrollView>
+            <View style={styles.modalButtons}>
+              {selectedAppt && ['PENDING', 'APPROVED', 'COMPLETED'].includes(String(selectedAppt.status || '').toUpperCase()) && (
+                <AppButton 
+                  title="Reschedule" 
+                  variant="secondary" 
+                  onPress={() => {
+                    setSelectedAppt(null);
+                    setRescheduleAppt(selectedAppt);
+                  }} 
+                  style={styles.modalBtn} 
+                />
+              )}
+              <AppButton title="Close" variant="outline" onPress={() => setSelectedAppt(null)} style={styles.modalBtn} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -192,10 +435,19 @@ const styles = StyleSheet.create({
   reason: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, flexWrap: 'wrap' },
   actionBtn: { flex: 1, minWidth: 100, minHeight: 36 },
+  ratedBadge: { backgroundColor: colors.success, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: borderRadius.sm },
+  ratedText: { fontSize: 12, fontWeight: '600', color: colors.white },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: colors.white, borderTopLeftRadius: borderRadius.lg, borderTopRightRadius: borderRadius.lg, padding: spacing.lg },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  modalContent: { backgroundColor: colors.white, borderTopLeftRadius: borderRadius.lg, borderTopRightRadius: borderRadius.lg, padding: spacing.lg, maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
   modalDoctor: { fontSize: 15, color: colors.primary, marginBottom: spacing.md, marginTop: spacing.xs },
   modalButtons: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   modalBtn: { flex: 1 },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md },
+  detailLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary, width: 100 },
+  detailValue: { fontSize: 14, color: colors.text, flex: 1, textAlign: 'right' },
+  pickerButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.sm },
+  pickerLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  pickerValue: { fontSize: 14, color: colors.primary },
+  webInput: { padding: 8, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, minWidth: 150 },
 });

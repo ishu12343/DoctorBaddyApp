@@ -129,7 +129,15 @@ export default function DoctorHomeScreen() {
           activities.slice(0, 5).map((activity, idx) => (
             <View key={idx} style={styles.activityCard}>
               <Ionicons name="ellipse" size={8} color={colors.primary} />
-              <Text style={styles.activityText}>{String(activity.message || activity.description || 'Activity')}</Text>
+              <View style={styles.activityContent}>
+                <Text style={styles.activityText}>
+                  {activity.patient_name ? `${String(activity.patient_name)} - ` : ''}
+                  {activity.action_type || activity.activity_type || 'Activity'}
+                </Text>
+                {activity.reason && <Text style={styles.activitySubtext}>Reason: {String(activity.reason)}</Text>}
+                {activity.status && <Text style={styles.activitySubtext}>Status: {String(activity.status)}</Text>}
+                <Text style={styles.activityTime}>{String(activity.appointment_datetime || activity.created_at)}</Text>
+              </View>
             </View>
           ))
         )}
@@ -181,7 +189,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   actionText: { fontSize: 11, fontWeight: '600', color: colors.text, textAlign: 'center' },
-  activityCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.white, padding: spacing.md, borderRadius: borderRadius.sm, marginBottom: spacing.sm },
-  activityText: { fontSize: 14, color: colors.text, flex: 1 },
+  activityCard: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.white, padding: spacing.md, borderRadius: borderRadius.sm, marginBottom: spacing.sm },
+  activityContent: { flex: 1 },
+  activityText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  activitySubtext: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  activityTime: { fontSize: 11, color: colors.textSecondary, marginTop: 4 },
   emptyText: { fontSize: 14, color: colors.textSecondary, fontStyle: 'italic' },
 });
