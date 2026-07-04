@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { PatientTabParamList } from '../../navigation/types';
@@ -8,6 +9,8 @@ import { patientApi } from '../../services/patientApi';
 import { getErrorMessage } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import SpecialtyCard from '../../components/SpecialtyCard';
+import DoctorCard from '../../components/DoctorCard';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 
 export default function PatientHomeScreen() {
@@ -17,6 +20,24 @@ export default function PatientHomeScreen() {
   const [appointments, setAppointments] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchText, setSearchText] = useState('');
+
+  const specialties = [
+    { icon: 'medkit-outline' as const, name: 'General Physician' },
+    { icon: 'heart-outline' as const, name: 'Cardiologist' },
+    { icon: 'medical-outline' as const, name: 'Dentist' },
+    { icon: 'happy-outline' as const, name: 'Pediatrician' },
+    { icon: 'woman-outline' as const, name: 'Gynecologist' },
+    { icon: 'person-outline' as const, name: 'Dermatologist' },
+    { icon: 'accessibility-outline' as const, name: 'Orthopedic' },
+    { icon: 'pulse-outline' as const, name: 'Neurologist' },
+  ];
+
+  const topDoctors = [
+    { id: 1, name: 'Dr. Ishwar Parmar', specialty: 'Cardiologist', rating: 4.8, experience: '15 years', fee: '$50' },
+    { id: 2, name: 'Dr. Sarah Johnson', specialty: 'Dermatologist', rating: 4.9, experience: '12 years', fee: '$45' },
+    { id: 3, name: 'Dr. Michael Chen', specialty: 'General Physician', rating: 4.7, experience: '10 years', fee: '$40' },
+  ];
 
   const loadData = useCallback(async () => {
     try {
@@ -57,40 +78,70 @@ export default function PatientHomeScreen() {
             <Text style={styles.greeting}>
               Hello, {profile?.full_name || 'Patient'}!
             </Text>
-            <Text style={styles.subGreeting}>Welcome to your health dashboard</Text>
+            <Text style={styles.subGreeting}>Find your doctor and book appointment</Text>
           </View>
           <TouchableOpacity style={styles.logoutIconButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Ionicons name="calendar" size={24} color={colors.primary} />
-            <Text style={styles.statNumber}>{appointments.length}</Text>
-            <Text style={styles.statLabel}>Total Appointments</Text>
-          </View>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search doctors, specialties..."
+            placeholderTextColor={colors.textSecondary}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
         </View>
 
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PatientDoctors')}>
-            <Ionicons name="search" size={28} color={colors.primary} />
-            <Text style={styles.actionText}>Find Doctors</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PatientAppointments')}>
-            <Ionicons name="calendar-outline" size={28} color={colors.primary} />
-            <Text style={styles.actionText}>My Appointments</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('PatientProfile')}>
-            <Ionicons name="person-outline" size={28} color={colors.primary} />
-            <Text style={styles.actionText}>My Profile</Text>
-          </TouchableOpacity>
-        </View>
+        <LinearGradient
+          colors={[colors.primary, colors.primaryLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.banner}
+        >
+          <View style={styles.bannerContent}>
+            <View style={styles.bannerText}>
+              <Text style={styles.bannerTitle}>Consult with a Doctor</Text>
+              <Text style={styles.bannerSubtitle}>Get expert advice from top doctors</Text>
+              <TouchableOpacity style={styles.bannerButton} onPress={() => navigation.navigate('PatientDoctors')}>
+                <Text style={styles.bannerButtonText}>Book Now</Text>
+              </TouchableOpacity>
+            </View>
+            <Ionicons name="medical" size={60} color="rgba(255,255,255,0.3)" />
+          </View>
+        </LinearGradient>
+
+        <Text style={styles.sectionTitle}>Top Specialties</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.specialtiesScroll}>
+          {specialties.map((specialty, index) => (
+            <SpecialtyCard
+              key={index}
+              icon={specialty.icon}
+              name={specialty.name}
+              onPress={() => navigation.navigate('PatientDoctors')}
+            />
+          ))}
+        </ScrollView>
+
+        <Text style={styles.sectionTitle}>Top Doctors</Text>
+        {topDoctors.map((doctor) => (
+          <DoctorCard
+            key={doctor.id}
+            name={doctor.name}
+            specialty={doctor.specialty}
+            rating={doctor.rating}
+            experience={doctor.experience}
+            fee={doctor.fee}
+            onPress={() => navigation.navigate('PatientDoctors')}
+          />
+        ))}
 
         {appointments.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>All Appointments</Text>
+            <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
             {appointments.map((appt: Record<string, unknown>, idx: number) => (
               <View key={String(appt.id || idx)} style={styles.apptCard}>
                 <Text style={styles.apptDoctor}>{String(appt.doctor_name || 'Doctor')}</Text>
@@ -111,8 +162,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
-  greeting: { fontSize: 26, fontWeight: '800', color: colors.text },
-  subGreeting: { fontSize: 15, color: colors.textSecondary, marginTop: 4 },
+  greeting: { fontSize: 24, fontWeight: '800', color: colors.text },
+  subGreeting: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
   logoutIconButton: {
     width: 40,
     height: 40,
@@ -126,37 +177,84 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  statCard: {
-    flex: 1,
+  searchContainer: {
+    flexDirection: 'row',
     backgroundColor: colors.white,
     borderRadius: borderRadius.md,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
+    marginBottom: spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  statNumber: { fontSize: 24, fontWeight: '800', color: colors.primary, marginTop: spacing.xs },
-  statLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.md },
-  actionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  actionCard: {
+  searchIcon: { marginRight: spacing.sm },
+  searchInput: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    alignItems: 'center',
-    gap: spacing.xs,
+    fontSize: 14,
+    color: colors.text,
   },
-  actionText: { fontSize: 11, fontWeight: '600', color: colors.text, textAlign: 'center' },
+  banner: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bannerText: { flex: 1 },
+  bannerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.white,
+    marginBottom: spacing.xs,
+  },
+  bannerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: spacing.md,
+  },
+  bannerButton: {
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignSelf: 'flex-start',
+  },
+  bannerButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  specialtiesScroll: {
+    marginBottom: spacing.lg,
+  },
   apptCard: {
     backgroundColor: colors.white,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   apptDoctor: { fontSize: 16, fontWeight: '600', color: colors.text },
   apptDate: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },

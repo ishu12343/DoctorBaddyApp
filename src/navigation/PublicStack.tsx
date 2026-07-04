@@ -7,6 +7,8 @@ import { colors } from '../constants/theme';
 import HomeScreen from '../screens/public/HomeScreen';
 import ServicesScreen from '../screens/public/ServicesScreen';
 import ContactScreen from '../screens/public/ContactScreen';
+import HealthScreen from '../screens/public/HealthScreen';
+import AllDoctorsScreen from '../screens/public/AllDoctorsScreen';
 import PatientLoginScreen from '../screens/auth/PatientLoginScreen';
 import PatientSignUpScreen from '../screens/auth/PatientSignUpScreen';
 import DoctorLoginScreen from '../screens/auth/DoctorLoginScreen';
@@ -24,7 +26,9 @@ function MainTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
             HomeTab: focused ? 'home' : 'home-outline',
+            FindDoctorsTab: focused ? 'search' : 'search-outline',
             ServicesTab: focused ? 'medical' : 'medical-outline',
+            HealthTab: focused ? 'heart' : 'heart-outline',
             ContactTab: focused ? 'call' : 'call-outline',
           };
           return <Ionicons name={icons[route.name]} size={size} color={color} />;
@@ -35,7 +39,9 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'Home' }} />
+      <Tab.Screen name="FindDoctorsTab" component={AllDoctorsScreen} options={{ title: 'Find Doctors' }} />
       <Tab.Screen name="ServicesTab" component={ServicesScreen} options={{ title: 'Services' }} />
+      <Tab.Screen name="HealthTab" component={HealthScreen} options={{ title: 'Health' }} />
       <Tab.Screen name="ContactTab" component={ContactScreen} options={{ title: 'Contact' }} />
     </Tab.Navigator>
   );
@@ -45,6 +51,7 @@ export default function PublicStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={MainTabs} />
+      <Stack.Screen name="AllDoctors" component={AllDoctorsScreen} />
       <Stack.Screen name="PatientLogin" component={PatientLoginScreen} />
       <Stack.Screen name="PatientSignUp" component={PatientSignUpScreen} />
       <Stack.Screen name="DoctorLogin" component={DoctorLoginScreen} />

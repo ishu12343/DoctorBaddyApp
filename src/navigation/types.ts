@@ -1,5 +1,6 @@
 export type PublicStackParamList = {
   Home: undefined;
+  AllDoctors: undefined;
   PatientLogin: undefined;
   PatientSignUp: undefined;
   DoctorLogin: undefined;
@@ -12,6 +13,7 @@ export type PatientTabParamList = {
   PatientHome: undefined;
   PatientDoctors: undefined;
   PatientAppointments: undefined;
+  PatientHealth: undefined;
   PatientProfile: undefined;
 };
 

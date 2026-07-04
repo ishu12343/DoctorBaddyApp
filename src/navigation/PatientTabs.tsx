@@ -6,6 +6,7 @@ import { colors } from '../constants/theme';
 import PatientHomeScreen from '../screens/patient/PatientHomeScreen';
 import PatientDoctorsScreen from '../screens/patient/PatientDoctorsScreen';
 import PatientAppointmentsScreen from '../screens/patient/PatientAppointmentsScreen';
+import PatientHealthScreen from '../screens/patient/PatientHealthScreen';
 import PatientProfileScreen from '../screens/patient/PatientProfileScreen';
 
 const Tab = createBottomTabNavigator<PatientTabParamList>();
@@ -19,6 +20,7 @@ export default function PatientTabs() {
             PatientHome: focused ? 'home' : 'home-outline',
             PatientDoctors: focused ? 'search' : 'search-outline',
             PatientAppointments: focused ? 'calendar' : 'calendar-outline',
+            PatientHealth: focused ? 'heart' : 'heart-outline',
             PatientProfile: focused ? 'person' : 'person-outline',
           };
           return <Ionicons name={icons[route.name]} size={size} color={color} />;
@@ -30,9 +32,10 @@ export default function PatientTabs() {
         headerTitleStyle: { fontWeight: '700' },
       })}
     >
-      <Tab.Screen name="PatientHome" component={PatientHomeScreen} options={{ title: 'Dashboard' }} />
+      <Tab.Screen name="PatientHome" component={PatientHomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="PatientDoctors" component={PatientDoctorsScreen} options={{ title: 'Find Doctors' }} />
-      <Tab.Screen name="PatientAppointments" component={PatientAppointmentsScreen} options={{ title: 'Appointments' }} />
+      <Tab.Screen name="PatientAppointments" component={PatientAppointmentsScreen} options={{ title: 'Bookings' }} />
+      <Tab.Screen name="PatientHealth" component={PatientHealthScreen} options={{ title: 'Health' }} />
       <Tab.Screen name="PatientProfile" component={PatientProfileScreen} options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );
