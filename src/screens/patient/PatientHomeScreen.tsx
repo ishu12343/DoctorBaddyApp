@@ -12,6 +12,19 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import SpecialtyCard from '../../components/SpecialtyCard';
 import DoctorCard from '../../components/DoctorCard';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import { API_BASE_URL } from '../../config/api';
+
+interface Doctor {
+  id: number;
+  full_name: string;
+  specialty: string;
+  average_rating: number;
+  total_reviews: number;
+  experience: string;
+  consultation_fee: number;
+  profile_photo: string;
+  clinic_address: string;
+}
 
 export default function PatientHomeScreen() {
   const navigation = useNavigation<NavigationProp<PatientTabParamList>>();
@@ -21,6 +34,7 @@ export default function PatientHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
 
   const specialties = [
     { icon: 'medkit-outline' as const, name: 'General Physician' },
@@ -33,11 +47,26 @@ export default function PatientHomeScreen() {
     { icon: 'pulse-outline' as const, name: 'Neurologist' },
   ];
 
-  const topDoctors = [
-    { id: 1, name: 'Dr. Ishwar Parmar', specialty: 'Cardiologist', rating: 4.8, experience: '15 years', fee: '$50' },
-    { id: 2, name: 'Dr. Sarah Johnson', specialty: 'Dermatologist', rating: 4.9, experience: '12 years', fee: '$45' },
-    { id: 3, name: 'Dr. Michael Chen', specialty: 'General Physician', rating: 4.7, experience: '10 years', fee: '$40' },
-  ];
+  const formatExperience = (experience: string | number): string => {
+    if (typeof experience === 'number') {
+      return `${experience}+ yr`;
+    }
+    const num = parseInt(experience);
+    if (!isNaN(num)) {
+      return `${num}+ yr`;
+    }
+    return experience;
+  };
+
+  const getProfilePhotoUrl = (photo: string | null | undefined): string => {
+    if (!photo) {
+      return 'https://via.placeholder.com/48';
+    }
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      return photo;
+    }
+    return `${API_BASE_URL}uploads/${photo}`;
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -47,6 +76,17 @@ export default function PatientHomeScreen() {
       ]);
       setProfile(profileRes.data?.patient || null);
       setAppointments(apptRes.data?.appointments || []);
+      
+      // Get patient's city from profile
+      const patientCity = profileRes.data?.patient?.city;
+      
+      // Fetch doctors filtered by patient's city (case-insensitive, trim whitespace)
+      const doctorsRes = await patientApi.getDoctors({ 
+        city: patientCity ? patientCity.trim().toLowerCase() : undefined 
+      });
+      const fetchedDoctors = doctorsRes.data?.doctors || [];
+      
+      setDoctors(fetchedDoctors);
     } catch (err) {
       console.error(getErrorMessage(err));
     } finally {
@@ -55,7 +95,9 @@ export default function PatientHomeScreen() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { 
+    loadData(); 
+  }, [loadData]);
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
@@ -63,6 +105,17 @@ export default function PatientHomeScreen() {
     console.log('PatientHomeScreen handleLogout called');
     console.log('Calling logout directly');
     await logout();
+  };
+
+  const handleCancelAppointment = async (appointmentId: number) => {
+    try {
+      await patientApi.cancelAppointment(appointmentId);
+      // Refresh appointments after cancellation
+      const apptRes = await patientApi.getAppointments();
+      setAppointments(apptRes.data?.appointments || []);
+    } catch (err) {
+      console.error('Failed to cancel appointment:', getErrorMessage(err));
+    }
   };
 
   if (loading) return <LoadingSpinner />;
@@ -126,15 +179,18 @@ export default function PatientHomeScreen() {
           ))}
         </ScrollView>
 
-        <Text style={styles.sectionTitle}>Top Doctors</Text>
-        {topDoctors.map((doctor) => (
+        <Text style={styles.sectionTitle}>Nearby Doctors</Text>
+        {doctors.map((doctor) => (
           <DoctorCard
             key={doctor.id}
-            name={doctor.name}
+            name={doctor.full_name}
             specialty={doctor.specialty}
-            rating={doctor.rating}
-            experience={doctor.experience}
-            fee={doctor.fee}
+            rating={doctor.average_rating}
+            experience={formatExperience(doctor.experience)}
+            fee={`$${doctor.consultation_fee}`}
+            avatar={getProfilePhotoUrl(doctor.profile_photo)}
+            location={doctor.clinic_address}
+            reviews={doctor.total_reviews}
             onPress={() => navigation.navigate('PatientDoctors')}
           />
         ))}
@@ -144,11 +200,23 @@ export default function PatientHomeScreen() {
             <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
             {appointments.map((appt: Record<string, unknown>, idx: number) => (
               <View key={String(appt.id || idx)} style={styles.apptCard}>
-                <Text style={styles.apptDoctor}>{String(appt.doctor_name || 'Doctor')}</Text>
-                <Text style={styles.apptDate}>
-                  {String(appt.appointment_date || '')} at {String(appt.appointment_time || '')}
-                </Text>
-                <Text style={styles.apptStatus}>{String(appt.status || '')}</Text>
+                <View style={styles.apptCardContent}>
+                  <View style={styles.apptInfo}>
+                    <Text style={styles.apptDoctor}>{String(appt.doctor_name || 'Doctor')}</Text>
+                    <Text style={styles.apptDate}>
+                      {String(appt.appointment_date || '')} at {String(appt.appointment_time || '')}
+                    </Text>
+                    <Text style={styles.apptStatus}>{String(appt.status || '')}</Text>
+                  </View>
+                  {String(appt.status || '') !== 'CANCELLED' && (
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={() => handleCancelAppointment(Number(appt.id))}
+                    >
+                      <Text style={styles.cancelButtonText}>Canceled</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             ))}
           </>
@@ -256,7 +324,27 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  apptCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  apptInfo: {
+    flex: 1,
+  },
   apptDoctor: { fontSize: 16, fontWeight: '600', color: colors.text },
   apptDate: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
   apptStatus: { fontSize: 12, color: colors.primary, fontWeight: '600', marginTop: 4 },
+  cancelButton: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    marginLeft: spacing.sm,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.white,
+  },
 });

@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { TextInput } from 'react-native-web';
 import { patientApi } from '../../services/patientApi';
 import { getErrorMessage } from '../../services/apiClient';
 import AppInput from '../../components/AppInput';
@@ -57,6 +56,7 @@ export default function PatientAppointmentsScreen() {
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [rescheduledAppts, setRescheduledAppts] = useState<Set<number>>(new Set());
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -98,6 +98,8 @@ export default function PatientAppointmentsScreen() {
         new_time: newTime,
         reason: rescheduleReason,
       });
+      // Mark this appointment as rescheduled so it won't show reschedule button again
+      setRescheduledAppts(prev => new Set(prev).add(rescheduleAppt.id));
       setRescheduleAppt(null);
       setNewDate('');
       setNewTime('');
@@ -196,7 +198,7 @@ export default function PatientAppointmentsScreen() {
         renderItem={({ item }) => {
           const status = String(item.status || '').toUpperCase();
           const canCancel = ['PENDING', 'APPROVED'].includes(status);
-          const canReschedule = ['PENDING', 'APPROVED'].includes(status);
+          const canReschedule = ['PENDING', 'APPROVED', 'CANCELLED'].includes(status) && !rescheduledAppts.has(item.id);
           const canRate = status === 'COMPLETED' && !item.has_rating;
 
           return (
@@ -405,7 +407,7 @@ export default function PatientAppointmentsScreen() {
               </View>
             </ScrollView>
             <View style={styles.modalButtons}>
-              {selectedAppt && ['PENDING', 'APPROVED', 'COMPLETED'].includes(String(selectedAppt.status || '').toUpperCase()) && (
+              {selectedAppt && ['PENDING', 'APPROVED', 'CANCELLED'].includes(String(selectedAppt.status || '').toUpperCase()) && !rescheduledAppts.has(selectedAppt.id) && (
                 <AppButton 
                   title="Reschedule" 
                   variant="secondary" 
@@ -449,5 +451,5 @@ const styles = StyleSheet.create({
   pickerButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.sm },
   pickerLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
   pickerValue: { fontSize: 14, color: colors.primary },
-  webInput: { padding: 8, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, minWidth: 150 },
+  webInput: { padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', fontSize: 14, minWidth: 150 },
 });

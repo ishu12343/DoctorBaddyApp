@@ -39,6 +39,7 @@ export default function PatientDoctorsScreen() {
   const [search, setSearch] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [city, setCity] = useState('');
+  const [patientCity, setPatientCity] = useState<string>('');
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [bookDate, setBookDate] = useState('');
   const [bookTime, setBookTime] = useState('');
@@ -49,18 +50,45 @@ export default function PatientDoctorsScreen() {
 
   const loadDoctors = useCallback(async () => {
     try {
+      // Get patient's city from profile
+      const profileRes = await patientApi.getProfile();
+      const cityFromProfile = profileRes.data?.patient?.city;
+      setPatientCity(cityFromProfile ? cityFromProfile.trim().toLowerCase() : '');
+
+      // Fetch doctors with optional city filter
       const res = await patientApi.getDoctors({
         search: search || undefined,
         specialty: specialty || undefined,
         city: city || undefined,
       });
-      setDoctors(res.data?.doctors || []);
+      const allDoctors = res.data?.doctors || [];
+
+      // Only sort by patient's city if no manual city filter is applied
+      if (!city) {
+        const sortedDoctors = [...allDoctors].sort((a, b) => {
+          const aCity = (a.city || a.location || '').trim().toLowerCase();
+          const bCity = (b.city || b.location || '').trim().toLowerCase();
+          const pCity = patientCity || '';
+
+          // If both are in patient's city, maintain original order
+          if (aCity === pCity && bCity === pCity) return 0;
+          // If a is in patient's city, it comes first
+          if (aCity === pCity) return -1;
+          // If b is in patient's city, it comes first
+          if (bCity === pCity) return 1;
+          // Otherwise maintain original order
+          return 0;
+        });
+        setDoctors(sortedDoctors);
+      } else {
+        setDoctors(allDoctors);
+      }
     } catch (err) {
       Alert.alert('Error', getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [search, specialty, city]);
+  }, [search, specialty, city, patientCity]);
 
   useEffect(() => { loadDoctors(); }, [loadDoctors]);
 
@@ -296,5 +324,5 @@ const styles = StyleSheet.create({
   pickerButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.sm },
   pickerLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
   pickerValue: { fontSize: 14, color: colors.primary },
-  webInput: { padding: 8, borderRadius: 8, border: '1px solid #ddd', fontSize: 14, minWidth: 150 },
+  webInput: { padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', fontSize: 14, minWidth: 150 },
 });
