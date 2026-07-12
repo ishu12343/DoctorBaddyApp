@@ -18,7 +18,9 @@ import AppInput from '../../components/AppInput';
 import AppButton from '../../components/AppButton';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
+import DoctorCard from '../../components/DoctorCard';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import { API_BASE_URL } from '../../config/api';
 
 interface Doctor {
   id: number;
@@ -26,8 +28,13 @@ interface Doctor {
   specialty?: string;
   city?: string;
   location?: string;
-  experience?: number;
+  experience?: string;
   rating?: number;
+  average_rating?: number;
+  total_reviews?: number;
+  consultation_fee?: number;
+  profile_photo?: string;
+  clinic_address?: string;
   available_days?: string;
   available_from?: string;
   available_to?: string;
@@ -39,7 +46,7 @@ export default function PatientDoctorsScreen() {
   const [search, setSearch] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [city, setCity] = useState('');
-  const [patientCity, setPatientCity] = useState<string>('');
+  const [patientAddress, setPatientAddress] = useState<string>('');
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [bookDate, setBookDate] = useState('');
   const [bookTime, setBookTime] = useState('');
@@ -50,32 +57,35 @@ export default function PatientDoctorsScreen() {
 
   const loadDoctors = useCallback(async () => {
     try {
-      // Get patient's city from profile
+      // Get patient's location details from profile
       const profileRes = await patientApi.getProfile();
+      const addressFromProfile = profileRes.data?.patient?.address;
       const cityFromProfile = profileRes.data?.patient?.city;
-      setPatientCity(cityFromProfile ? cityFromProfile.trim().toLowerCase() : '');
+      setPatientAddress(addressFromProfile ? addressFromProfile.trim().toLowerCase() : '');
 
-      // Fetch doctors with optional city filter
+      // Fetch doctors with optional filters
       const res = await patientApi.getDoctors({
         search: search || undefined,
         specialty: specialty || undefined,
         city: city || undefined,
+        patient_address: addressFromProfile ? addressFromProfile.trim().toLowerCase() : undefined,
+        patient_city: cityFromProfile ? cityFromProfile.trim().toLowerCase() : undefined,
       });
       const allDoctors = res.data?.doctors || [];
 
-      // Only sort by patient's city if no manual city filter is applied
+      // Only sort by patient's address if no manual city filter is applied
       if (!city) {
         const sortedDoctors = [...allDoctors].sort((a, b) => {
-          const aCity = (a.city || a.location || '').trim().toLowerCase();
-          const bCity = (b.city || b.location || '').trim().toLowerCase();
-          const pCity = patientCity || '';
+          const aAddress = (a.clinic_address || a.location || '').trim().toLowerCase();
+          const bAddress = (b.clinic_address || b.location || '').trim().toLowerCase();
+          const pAddress = patientAddress || '';
 
-          // If both are in patient's city, maintain original order
-          if (aCity === pCity && bCity === pCity) return 0;
-          // If a is in patient's city, it comes first
-          if (aCity === pCity) return -1;
-          // If b is in patient's city, it comes first
-          if (bCity === pCity) return 1;
+          // If both match patient's address, maintain original order
+          if (aAddress.includes(pAddress) && bAddress.includes(pAddress)) return 0;
+          // If a matches patient's address, it comes first
+          if (aAddress.includes(pAddress)) return -1;
+          // If b matches patient's address, it comes first
+          if (bAddress.includes(pAddress)) return 1;
           // Otherwise maintain original order
           return 0;
         });
@@ -88,7 +98,7 @@ export default function PatientDoctorsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [search, specialty, city, patientCity]);
+  }, [search, specialty, city, patientAddress]);
 
   useEffect(() => { loadDoctors(); }, [loadDoctors]);
 
@@ -162,6 +172,28 @@ export default function PatientDoctorsScreen() {
     return selectedDoctor.available_days.includes(dayName);
   };
 
+  const formatExperience = (experience: string | number | undefined): string => {
+    if (!experience) return '0+ yr';
+    if (typeof experience === 'number') {
+      return `${experience}+ yr`;
+    }
+    const num = parseInt(experience);
+    if (!isNaN(num)) {
+      return `${num}+ yr`;
+    }
+    return experience;
+  };
+
+  const getProfilePhotoUrl = (photo: string | null | undefined): string => {
+    if (!photo) {
+      return 'https://via.placeholder.com/48';
+    }
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      return photo;
+    }
+    return `${API_BASE_URL}uploads/${photo}`;
+  };
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -181,24 +213,17 @@ export default function PatientDoctorsScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={<EmptyState icon="medical-outline" title="No doctors found" message="Try adjusting your search filters" />}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.avatar}>
-                <Ionicons name="medkit" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={styles.name}>{item.full_name || 'Doctor'}</Text>
-                <Text style={styles.specialty}>{item.specialty || 'General'}</Text>
-                <Text style={styles.location}>
-                  <Ionicons name="location-outline" size={12} /> {item.city || item.location || 'N/A'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.cardFooter}>
-              <Text style={styles.exp}>{item.experience || 0} yrs exp</Text>
-              <AppButton title="Book" onPress={() => setSelectedDoctor(item)} style={styles.bookBtn} />
-            </View>
-          </View>
+          <DoctorCard
+            name={item.full_name || 'Doctor'}
+            specialty={item.specialty || 'General'}
+            rating={item.average_rating || item.rating || 0}
+            experience={formatExperience(item.experience)}
+            fee={`$${item.consultation_fee || 0}`}
+            avatar={getProfilePhotoUrl(item.profile_photo)}
+            location={item.clinic_address || item.location || item.city || 'N/A'}
+            reviews={item.total_reviews || 0}
+            onPress={() => setSelectedDoctor(item)}
+          />
         )}
       />
 
@@ -305,16 +330,6 @@ const styles = StyleSheet.create({
   filterInput: { flex: 1, marginBottom: spacing.sm },
   searchBtn: { marginTop: spacing.xs },
   list: { padding: spacing.md, paddingBottom: spacing.xl },
-  card: { backgroundColor: colors.white, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#EBF4FF', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
-  cardInfo: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '700', color: colors.text },
-  specialty: { fontSize: 14, color: colors.primary, marginTop: 2 },
-  location: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
-  exp: { fontSize: 13, color: colors.textSecondary },
-  bookBtn: { paddingHorizontal: spacing.lg, minHeight: 36 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: colors.white, borderTopLeftRadius: borderRadius.lg, borderTopRightRadius: borderRadius.lg, padding: spacing.lg, maxHeight: '80%' },
   modalTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },

@@ -23,7 +23,7 @@ export const patientApi = {
     });
   },
 
-  getDoctors: (params?: { specialty?: string; city?: string; search?: string }) =>
+  getDoctors: (params?: { specialty?: string; city?: string; search?: string; patient_address?: string; patient_location?: string; patient_city?: string }) =>
     apiClient.get('api/patient/doctors', { params }),
 
   bookAppointment: (data: {

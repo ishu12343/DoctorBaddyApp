@@ -77,12 +77,14 @@ export default function PatientHomeScreen() {
       setProfile(profileRes.data?.patient || null);
       setAppointments(apptRes.data?.appointments || []);
       
-      // Get patient's city from profile
+      // Get patient's location details from profile
+      const patientAddress = profileRes.data?.patient?.address;
       const patientCity = profileRes.data?.patient?.city;
       
-      // Fetch doctors filtered by patient's city (case-insensitive, trim whitespace)
+      // Fetch doctors filtered by patient's address and city (case-insensitive, trim whitespace)
       const doctorsRes = await patientApi.getDoctors({ 
-        city: patientCity ? patientCity.trim().toLowerCase() : undefined 
+        patient_address: patientAddress ? patientAddress.trim().toLowerCase() : undefined,
+        patient_city: patientCity ? patientCity.trim().toLowerCase() : undefined,
       });
       const fetchedDoctors = doctorsRes.data?.doctors || [];
       
