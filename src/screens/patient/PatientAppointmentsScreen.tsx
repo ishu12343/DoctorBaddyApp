@@ -22,6 +22,14 @@ import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
 import StarRating from '../../components/StarRating';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import { filterAppointments, AppointmentFilter } from '../../utils/appointments';
+
+const FILTERS: { key: AppointmentFilter; label: string }[] = [
+  { key: 'ALL', label: 'All Appointments' },
+  { key: 'UPCOMING', label: 'Upcoming Appointments' },
+  { key: 'CONFIRMED', label: 'Confirmed Appointments' },
+  { key: 'CANCELLED', label: 'Cancelled Appointments' },
+];
 
 interface Appointment {
   id: number;
@@ -57,6 +65,7 @@ export default function PatientAppointmentsScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [rescheduledAppts, setRescheduledAppts] = useState<Set<number>>(new Set());
+  const [activeFilter, setActiveFilter] = useState<AppointmentFilter>('ALL');
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -187,14 +196,51 @@ export default function PatientAppointmentsScreen() {
 
   if (loading) return <LoadingSpinner />;
 
+  const filteredAppointments = filterAppointments(appointments, activeFilter);
+
+  const renderFilterTabs = () => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.filterBar}
+    >
+      {FILTERS.map((filter) => {
+        const active = activeFilter === filter.key;
+        return (
+          <TouchableOpacity
+            key={filter.key}
+            style={[styles.filterTab, active && styles.filterTabActive]}
+            onPress={() => setActiveFilter(filter.key)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
-        data={appointments}
+        data={filteredAppointments}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={renderFilterTabs}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAppointments(); }} colors={[colors.primary]} />}
-        ListEmptyComponent={<EmptyState icon="calendar-outline" title="No appointments" message="Book an appointment with a doctor" />}
+        ListEmptyComponent={
+          <EmptyState
+            icon="calendar-outline"
+            title="No appointments"
+            message={
+              activeFilter === 'ALL'
+                ? 'Book an appointment with a doctor'
+                : `No ${activeFilter.toLowerCase()} appointments`
+            }
+          />
+        }
         renderItem={({ item }) => {
           const status = String(item.status || '').toUpperCase();
           const canCancel = ['PENDING', 'APPROVED'].includes(status);
@@ -430,6 +476,18 @@ export default function PatientAppointmentsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   list: { padding: spacing.md, paddingBottom: spacing.xl },
+  filterBar: { flexDirection: 'row', gap: spacing.sm, paddingBottom: spacing.md },
+  filterTab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filterTabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterTabText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  filterTabTextActive: { color: colors.white },
   card: { backgroundColor: colors.white, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   doctorName: { fontSize: 16, fontWeight: '700', color: colors.text, flex: 1 },

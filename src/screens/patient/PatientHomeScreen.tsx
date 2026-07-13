@@ -13,6 +13,9 @@ import SpecialtyCard from '../../components/SpecialtyCard';
 import DoctorCard from '../../components/DoctorCard';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 import { API_BASE_URL } from '../../config/api';
+import { sortByLatestBooking, isUpcoming, AppointmentLike } from '../../utils/appointments';
+
+const MAX_UPCOMING = 3;
 
 interface Doctor {
   id: number;
@@ -122,6 +125,10 @@ export default function PatientHomeScreen() {
 
   if (loading) return <LoadingSpinner />;
 
+  const upcomingAppointments = sortByLatestBooking(
+    (appointments as unknown as AppointmentLike[]).filter(isUpcoming)
+  ).slice(0, MAX_UPCOMING);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -197,16 +204,16 @@ export default function PatientHomeScreen() {
           />
         ))}
 
-        {appointments.length > 0 && (
+        {upcomingAppointments.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
-            {appointments.map((appt: Record<string, unknown>, idx: number) => (
+            {upcomingAppointments.map((appt: AppointmentLike, idx: number) => (
               <View key={String(appt.id || idx)} style={styles.apptCard}>
                 <View style={styles.apptCardContent}>
                   <View style={styles.apptInfo}>
                     <Text style={styles.apptDoctor}>{String(appt.doctor_name || 'Doctor')}</Text>
                     <Text style={styles.apptDate}>
-                      {String(appt.appointment_date || '')} at {String(appt.appointment_time || '')}
+                      {String(appt.appointment_datetime || `${String(appt.appointment_date || '')} ${String(appt.appointment_time || '')}`).trim()}
                     </Text>
                     <Text style={styles.apptStatus}>{String(appt.status || '')}</Text>
                   </View>

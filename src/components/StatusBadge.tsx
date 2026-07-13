@@ -9,6 +9,7 @@ interface Props {
 const statusColors: Record<string, { bg: string; text: string }> = {
   PENDING: { bg: '#FEF3C7', text: '#D97706' },
   APPROVED: { bg: '#D1FAE5', text: '#059669' },
+  CONFIRMED: { bg: '#D1FAE5', text: '#059669' },
   COMPLETED: { bg: '#DBEAFE', text: '#2563EB' },
   CANCELLED: { bg: '#FEE2E2', text: '#DC2626' },
   REJECTED: { bg: '#FEE2E2', text: '#DC2626' },
