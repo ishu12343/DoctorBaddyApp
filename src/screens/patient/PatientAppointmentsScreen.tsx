@@ -215,26 +215,37 @@ export default function PatientAppointmentsScreen() {
 
   if (loading) return <LoadingSpinner />;
 
-  const filteredAppointments = appointments.filter((appt) => {
-    const status = String(appt.status || '').toUpperCase();
-    const apptDate = String(appt.appointment_date || '');
-    const apptTime = String(appt.appointment_time || '');
-    const apptDateTime = new Date(`${apptDate}T${apptTime}`);
-    const now = new Date();
+  const filteredAppointments = appointments
+    .filter((appt) => {
+      const status = String(appt.status || '').toUpperCase();
+      const apptDate = String(appt.appointment_date || '');
+      const apptTime = String(appt.appointment_time || '');
+      const apptDateTime = new Date(`${apptDate}T${apptTime}`);
+      const now = new Date();
 
-    switch (selectedFilter) {
-      case 'ALL':
-        return true;
-      case 'UPCOMING':
-        return status !== 'CANCELLED' && apptDateTime >= now;
-      case 'CONFIRMED':
-        return status === 'APPROVED' || status === 'CONFIRMED';
-      case 'CANCELLED':
-        return status === 'CANCELLED';
-      default:
-        return true;
-    }
-  });
+      switch (selectedFilter) {
+        case 'ALL':
+          return true;
+        case 'UPCOMING':
+          return status !== 'CANCELLED' && apptDateTime >= now;
+        case 'CONFIRMED':
+          return status === 'APPROVED' || status === 'CONFIRMED';
+        case 'CANCELLED':
+          return status === 'CANCELLED';
+        default:
+          return true;
+      }
+    })
+    .sort((a, b) => {
+      const dateA = new Date(`${String(a.appointment_date)}T${String(a.appointment_time)}`);
+      const dateB = new Date(`${String(b.appointment_date)}T${String(b.appointment_time)}`);
+      // For UPCOMING, sort ascending (nearest date first)
+      // For other filters, sort descending (most recent first)
+      if (selectedFilter === 'UPCOMING') {
+        return dateA.getTime() - dateB.getTime();
+      }
+      return dateB.getTime() - dateA.getTime();
+    });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
