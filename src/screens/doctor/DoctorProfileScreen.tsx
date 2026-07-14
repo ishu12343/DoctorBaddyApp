@@ -123,7 +123,7 @@ export default function DoctorProfileScreen() {
             )
           )}
 
-          {editing && <AppButton title="Save Profile" onPress={handleSave} loading={saving} />}
+          {editing ? <AppButton title="Save Profile" onPress={handleSave} loading={saving} /> : null}
         </View>
 
         <AppButton title="Sign Out" variant="danger" onPress={handleLogout} style={styles.logoutBtn} />

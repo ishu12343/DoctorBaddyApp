@@ -33,6 +33,11 @@ export const patientApi = {
     reason: string;
   }) => apiClient.post('api/patient/appointments/book', data),
 
+  updateAppointment: (
+    appointmentId: number,
+    data: { appointment_date: string; appointment_time: string; reason: string }
+  ) => apiClient.put(`api/patient/appointments/${appointmentId}`, data),
+
   getAppointments: () => apiClient.get('api/patient/appointments'),
 
   cancelAppointment: (appointmentId: number) =>

@@ -65,18 +65,18 @@ export default function DoctorHomeScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} colors={[colors.primary]} />}
       >
-        {isPending && (
+        {isPending ? (
           <View style={[styles.alert, styles.alertWarning]}>
             <Ionicons name="time" size={20} color={colors.warning} />
             <Text style={styles.alertText}>Your account is pending admin approval</Text>
           </View>
-        )}
-        {isSuspended && (
+        ) : null}
+        {isSuspended ? (
           <View style={[styles.alert, styles.alertError]}>
             <Ionicons name="ban" size={20} color={colors.error} />
             <Text style={styles.alertText}>Your account has been suspended</Text>
           </View>
-        )}
+        ) : null}
 
         <View style={styles.header}>
           <View>
@@ -134,8 +134,8 @@ export default function DoctorHomeScreen() {
                   {activity.patient_name ? `${String(activity.patient_name)} - ` : ''}
                   {activity.action_type || activity.activity_type || 'Activity'}
                 </Text>
-                {activity.reason && <Text style={styles.activitySubtext}>Reason: {String(activity.reason)}</Text>}
-                {activity.status && <Text style={styles.activitySubtext}>Status: {String(activity.status)}</Text>}
+                {activity.reason ? <Text style={styles.activitySubtext}>Reason: {String(activity.reason)}</Text> : null}
+                {activity.status ? <Text style={styles.activitySubtext}>Status: {String(activity.status)}</Text> : null}
                 <Text style={styles.activityTime}>{String(activity.appointment_datetime || activity.created_at)}</Text>
               </View>
             </View>

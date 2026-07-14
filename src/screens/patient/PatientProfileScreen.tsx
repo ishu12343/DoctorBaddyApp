@@ -138,7 +138,7 @@ export default function PatientProfileScreen() {
             )
           )}
 
-          {editing && (
+          {editing ? (
             <>
               <TouchableOpacity style={styles.docBtn} onPress={pickDocument}>
                 <Ionicons name="document-attach" size={20} color={colors.primary} />
@@ -146,7 +146,7 @@ export default function PatientProfileScreen() {
               </TouchableOpacity>
               <AppButton title="Save Profile" onPress={handleSave} loading={saving} />
             </>
-          )}
+          ) : null}
         </View>
 
         <AppButton title="Sign Out" variant="danger" onPress={handleLogout} style={styles.logoutBtn} />

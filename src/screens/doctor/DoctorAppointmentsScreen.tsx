@@ -102,28 +102,28 @@ export default function DoctorAppointmentsScreen() {
                 <StatusBadge status={status} />
               </View>
               <Text style={styles.dateTime}>{item.appointment_date} at {item.appointment_time}</Text>
-              {item.reason && <Text style={styles.reason}>Reason: {item.reason}</Text>}
-              {item.patient_mobile && (
+              {item.reason ? <Text style={styles.reason}>Reason: {item.reason}</Text> : null}
+              {item.patient_mobile ? (
                 <AppButton
                   title={`Call ${item.patient_mobile}`}
                   variant="outline"
                   onPress={() => Linking.openURL(`tel:${item.patient_mobile}`)}
                   style={styles.callBtn}
                 />
-              )}
+              ) : null}
               <View style={styles.actions}>
-                {status === 'PENDING' && (
+                {status === 'PENDING' ? (
                   <>
                     <AppButton title="Approve" onPress={() => handleAction(item.id, 'approve')} style={styles.actionBtn} />
                     <AppButton title="Reject" variant="danger" onPress={() => handleAction(item.id, 'reject')} style={styles.actionBtn} />
                   </>
-                )}
-                {status === 'APPROVED' && (
+                ) : null}
+                {status === 'APPROVED' ? (
                   <>
                     <AppButton title="Complete" variant="secondary" onPress={() => handleAction(item.id, 'complete')} style={styles.actionBtn} />
                     <AppButton title="Reschedule" variant="outline" onPress={() => setRescheduleAppt(item)} style={styles.actionBtn} />
                   </>
-                )}
+                ) : null}
               </View>
             </View>
           );

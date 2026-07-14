@@ -93,19 +93,46 @@ export default function PatientAppointmentsScreen() {
     if (!rescheduleAppt || !newDate || !newTime) return;
     setActionLoading(true);
     try {
-      await patientApi.rescheduleAppointment(rescheduleAppt.id, {
-        new_date: newDate,
-        new_time: newTime,
-        reason: rescheduleReason,
-      });
-      // Mark this appointment as rescheduled so it won't show reschedule button again
-      setRescheduledAppts(prev => new Set(prev).add(rescheduleAppt.id));
+      const status = String(rescheduleAppt.status || '').toUpperCase();
+      
+      if (status === 'PENDING') {
+        // Try to update existing booking for PENDING status
+        try {
+          await patientApi.updateAppointment(rescheduleAppt.id, {
+            appointment_date: newDate,
+            appointment_time: newTime,
+            reason: rescheduleReason,
+          });
+          Alert.alert('Success', 'Appointment updated');
+        } catch (updateErr: any) {
+          // Fallback to reschedule API if update endpoint doesn't exist or fails
+          console.log('Update endpoint not available, using reschedule instead');
+          await patientApi.rescheduleAppointment(rescheduleAppt.id, {
+            new_date: newDate,
+            new_time: newTime,
+            reason: rescheduleReason,
+          });
+          // Mark this appointment as rescheduled so it won't show reschedule button again
+          setRescheduledAppts(prev => new Set(prev).add(rescheduleAppt.id));
+          Alert.alert('Success', 'Appointment rescheduled');
+        }
+      } else {
+        // Use reschedule API for other statuses
+        await patientApi.rescheduleAppointment(rescheduleAppt.id, {
+          new_date: newDate,
+          new_time: newTime,
+          reason: rescheduleReason,
+        });
+        // Mark this appointment as rescheduled so it won't show reschedule button again
+        setRescheduledAppts(prev => new Set(prev).add(rescheduleAppt.id));
+        Alert.alert('Success', 'Appointment rescheduled');
+      }
+      
       setRescheduleAppt(null);
       setNewDate('');
       setNewTime('');
       setRescheduleReason('');
       loadAppointments();
-      Alert.alert('Success', 'Appointment rescheduled');
     } catch (err) {
       Alert.alert('Error', getErrorMessage(err));
     } finally {
@@ -198,7 +225,7 @@ export default function PatientAppointmentsScreen() {
         renderItem={({ item }) => {
           const status = String(item.status || '').toUpperCase();
           const canCancel = ['PENDING', 'APPROVED'].includes(status);
-          const canReschedule = ['PENDING', 'APPROVED', 'CANCELLED'].includes(status) && !rescheduledAppts.has(item.id);
+          const canReschedule = !rescheduledAppts.has(item.id);
           const canRate = status === 'COMPLETED' && !item.has_rating;
 
           return (
@@ -214,22 +241,22 @@ export default function PatientAppointmentsScreen() {
               <Text style={styles.dateTime}>
                 {item.appointment_date} at {item.appointment_time}
               </Text>
-              {item.reason && <Text style={styles.reason}>Reason: {item.reason}</Text>}
+              {item.reason ? <Text style={styles.reason}>Reason: {item.reason}</Text> : null}
               <View style={styles.actions}>
-                {canCancel && (
+                {canCancel ? (
                   <AppButton title="Cancel" variant="danger" onPress={() => handleCancel(item.id)} style={styles.actionBtn} />
-                )}
-                {canReschedule && (
+                ) : null}
+                {canReschedule ? (
                   <AppButton title="Reschedule" variant="outline" onPress={() => setRescheduleAppt(item)} style={styles.actionBtn} />
-                )}
-                {canRate && (
+                ) : null}
+                {canRate ? (
                   <AppButton title="Rate" variant="secondary" onPress={() => setRateAppt(item)} style={styles.actionBtn} />
-                )}
-                {status === 'COMPLETED' && item.has_rating && (
+                ) : null}
+                {status === 'COMPLETED' && item.has_rating ? (
                   <View style={styles.ratedBadge}>
                     <Text style={styles.ratedText}>Rated</Text>
                   </View>
-                )}
+                ) : null}
               </View>
             </TouchableOpacity>
           );
@@ -407,7 +434,7 @@ export default function PatientAppointmentsScreen() {
               </View>
             </ScrollView>
             <View style={styles.modalButtons}>
-              {selectedAppt && ['PENDING', 'APPROVED', 'CANCELLED'].includes(String(selectedAppt.status || '').toUpperCase()) && !rescheduledAppts.has(selectedAppt.id) && (
+              {selectedAppt && !rescheduledAppts.has(selectedAppt.id) && (
                 <AppButton 
                   title="Reschedule" 
                   variant="secondary" 

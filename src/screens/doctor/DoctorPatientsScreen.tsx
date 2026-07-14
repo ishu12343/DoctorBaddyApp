@@ -81,8 +81,8 @@ export default function DoctorPatientsScreen() {
               <Text style={styles.detail}>{item.email}</Text>
               <Text style={styles.detail}>{item.mobile}</Text>
               <View style={styles.tags}>
-                {item.gender && <Text style={styles.tag}>{item.gender}</Text>}
-                {item.blood_group && <Text style={styles.tag}>{item.blood_group}</Text>}
+                {item.gender ? <Text style={styles.tag}>{item.gender}</Text> : null}
+                {item.blood_group ? <Text style={styles.tag}>{item.blood_group}</Text> : null}
               </View>
             </View>
           </View>

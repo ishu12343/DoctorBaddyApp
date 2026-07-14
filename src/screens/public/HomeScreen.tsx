@@ -22,13 +22,14 @@ import { API_BASE_URL } from '../../config/api';
 
 interface Doctor {
   id: number;
-  full_name: string;
-  specialty: string;
-  average_rating: number;
-  total_reviews: number;
-  experience: string;
-  consultation_fee: number;
-  profile_photo: string;
+  full_name?: string;
+  specialty?: string;
+  average_rating?: number;
+  total_reviews?: number;
+  experience?: string;
+  consultation_fee?: number;
+  profile_photo?: string;
+  clinic_address?: string;
 }
 
 export default function HomeScreen() {
@@ -97,13 +98,13 @@ export default function HomeScreen() {
 
     if (selectedSpecialty !== 'All') {
       filtered = filtered.filter(
-        (doctor) => doctor.specialty.toLowerCase() === selectedSpecialty.toLowerCase()
+        (doctor) => doctor.specialty?.toLowerCase() === selectedSpecialty.toLowerCase()
       );
     }
 
     if (searchName) {
       filtered = filtered.filter(
-        (doctor) => doctor.full_name.toLowerCase().includes(searchName.toLowerCase())
+        (doctor) => doctor.full_name?.toLowerCase().includes(searchName.toLowerCase())
       );
     }
 
@@ -123,9 +124,9 @@ export default function HomeScreen() {
   const fetchDoctors = async () => {
     try {
       const response = await apiClient.get('api/patient/doctors');
-      const doctors = response.data.doctors || [];
+      const doctors = (response.data.doctors || []) as Doctor[];
       // Sort by rating and take all doctors for filtering
-      const sortedDoctors = doctors.sort((a: Doctor, b: Doctor) => b.average_rating - a.average_rating);
+      const sortedDoctors = doctors.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
       setTopRatedDoctors(sortedDoctors);
     } catch (error) {
       console.error('Failed to fetch doctors:', error);
@@ -222,14 +223,14 @@ export default function HomeScreen() {
             filteredDoctors.map((doctor) => (
               <DoctorCard
                 key={doctor.id}
-                name={doctor.full_name}
-                specialty={doctor.specialty}
-                rating={doctor.average_rating}
-                experience={formatExperience(doctor.experience)}
-                fee={`$${doctor.consultation_fee}`}
+                name={doctor.full_name || 'Doctor'}
+                specialty={doctor.specialty || 'General'}
+                rating={doctor.average_rating || 0}
+                experience={formatExperience(doctor.experience || '0')}
+                fee={`$${doctor.consultation_fee || 0}`}
                 avatar={getProfilePhotoUrl(doctor.profile_photo)}
-                location={doctor.clinic_address}
-                reviews={doctor.total_reviews}
+                location={doctor.clinic_address || 'Location not specified'}
+                reviews={doctor.total_reviews || 0}
                 onPress={() => goTo('PatientLogin')}
                 showBookButton={true}
                 onBookNow={() => goTo('PatientLogin')}

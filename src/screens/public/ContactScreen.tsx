@@ -29,10 +29,10 @@ export default function ContactScreen() {
             {tabs.map((tab) => (
               <TouchableOpacity
                 key={tab}
-                style={[styles.tab, activeTab === tab && styles.tabActive]}
+                style={[styles.tab, activeTab === tab ? styles.tabActive : undefined]}
                 onPress={() => setActiveTab(tab)}
               >
-                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+                <Text style={[styles.tabText, activeTab === tab ? styles.tabTextActive : undefined]}>{tab}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>

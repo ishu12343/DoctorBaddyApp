@@ -46,18 +46,18 @@ export default function DoctorCard({
         <View style={styles.infoContainer}>
           <Text style={styles.name}>{name}</Text>
           <Text style={styles.specialty}>{specialty}</Text>
-          {location && (
+          {location ? (
             <View style={styles.row}>
               <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
               <Text style={styles.locationText}>{location}</Text>
             </View>
-          )}
+          ) : null}
           <View style={styles.row}>
             <StarRating rating={rating} size={14} />
             <Text style={styles.ratingText}>({rating}/5)</Text>
-            {reviews !== undefined && (
+            {reviews !== undefined ? (
               <Text style={styles.reviewsText}>({reviews})</Text>
-            )}
+            ) : null}
           </View>
           <View style={styles.row}>
             <Ionicons name="briefcase-outline" size={14} color={colors.textSecondary} />
@@ -65,11 +65,11 @@ export default function DoctorCard({
           </View>
         </View>
       </TouchableOpacity>
-      {showBookButton && (
+      {showBookButton ? (
         <TouchableOpacity style={styles.bookButton} onPress={onBookNow}>
           <Text style={styles.bookButtonText}>Book Now</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
       <View style={styles.feeContainer}>
         <Text style={styles.feeText}>Consultation Fee ({fee})</Text>
       </View>

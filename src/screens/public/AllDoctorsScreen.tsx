@@ -17,14 +17,15 @@ import { API_BASE_URL } from '../../config/api';
 
 interface Doctor {
   id: number;
-  full_name: string;
-  specialty: string;
-  average_rating: number;
-  total_reviews: number;
-  experience: string;
-  consultation_fee: number;
-  profile_photo: string;
+  full_name?: string;
+  specialty?: string;
+  average_rating?: number;
+  total_reviews?: number;
+  experience?: string;
+  consultation_fee?: number;
+  profile_photo?: string;
   location?: string;
+  clinic_address?: string;
 }
 
 export default function AllDoctorsScreen() {
@@ -82,13 +83,13 @@ export default function AllDoctorsScreen() {
 
     if (selectedSpecialty !== 'All') {
       filtered = filtered.filter(
-        (doctor) => doctor.specialty.toLowerCase() === selectedSpecialty.toLowerCase()
+        (doctor) => doctor.specialty?.toLowerCase() === selectedSpecialty.toLowerCase()
       );
     }
 
     if (searchName) {
       filtered = filtered.filter(
-        (doctor) => doctor.full_name.toLowerCase().includes(searchName.toLowerCase())
+        (doctor) => doctor.full_name?.toLowerCase().includes(searchName.toLowerCase())
       );
     }
 
@@ -104,8 +105,8 @@ export default function AllDoctorsScreen() {
   const fetchDoctors = async () => {
     try {
       const response = await apiClient.get('api/patient/doctors');
-      const doctors = response.data.doctors || [];
-      const sortedDoctors = doctors.sort((a: Doctor, b: Doctor) => b.average_rating - a.average_rating);
+      const doctors = (response.data.doctors || []) as Doctor[];
+      const sortedDoctors = doctors.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
       setDoctors(sortedDoctors);
     } catch (error) {
       console.error('Failed to fetch doctors:', error);
@@ -149,13 +150,13 @@ export default function AllDoctorsScreen() {
               <View
                 style={[
                   styles.specialtyChip,
-                  selectedSpecialty === specialty && styles.specialtyChipActive,
+                  selectedSpecialty === specialty ? styles.specialtyChipActive : undefined,
                 ]}
               >
                 <Text
                   style={[
                     styles.specialtyChipText,
-                    selectedSpecialty === specialty && styles.specialtyChipTextActive,
+                    selectedSpecialty === specialty ? styles.specialtyChipTextActive : undefined,
                   ]}
                 >
                   {specialty}
@@ -167,7 +168,7 @@ export default function AllDoctorsScreen() {
 
         <Text style={styles.sectionTitle}>
           {selectedSpecialty === 'All' ? 'All Doctors' : `${selectedSpecialty} Doctors`}
-          {filteredDoctors.length > 0 && ` (${filteredDoctors.length})`}
+          {filteredDoctors.length > 0 ? ` (${filteredDoctors.length})` : ''}
         </Text>
 
         {loading ? (
@@ -182,14 +183,14 @@ export default function AllDoctorsScreen() {
           filteredDoctors.map((doctor) => (
             <DoctorCard
               key={doctor.id}
-              name={doctor.full_name}
-              specialty={doctor.specialty}
-              rating={doctor.average_rating}
-              experience={formatExperience(doctor.experience)}
-              fee={`$${doctor.consultation_fee}`}
+              name={doctor.full_name || 'Doctor'}
+              specialty={doctor.specialty || 'General'}
+              rating={doctor.average_rating || 0}
+              experience={formatExperience(doctor.experience || '0')}
+              fee={`$${doctor.consultation_fee || 0}`}
               avatar={getProfilePhotoUrl(doctor.profile_photo)}
-              location={doctor.clinic_address}
-              reviews={doctor.total_reviews}
+              location={doctor.clinic_address || doctor.location || 'Location not specified'}
+              reviews={doctor.total_reviews || 0}
               showBookButton={true}
               onBookNow={() => {}}
             />

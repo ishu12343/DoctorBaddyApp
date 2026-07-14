@@ -137,10 +137,10 @@ export default function PatientSignUpScreen({ navigation }: Props) {
               {['MALE', 'FEMALE', 'OTHER'].map((g) => (
                 <TouchableOpacity
                   key={g}
-                  style={[styles.radioBtn, form.gender === g && styles.radioActive]}
+                  style={[styles.radioBtn, form.gender === g ? styles.radioActive : undefined]}
                   onPress={() => update('gender', g)}
                 >
-                  <Text style={[styles.radioText, form.gender === g && styles.radioTextActive]}>{g}</Text>
+                  <Text style={[styles.radioText, form.gender === g ? styles.radioTextActive : undefined]}>{g}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -150,10 +150,10 @@ export default function PatientSignUpScreen({ navigation }: Props) {
               {bloodGroups.map((bg) => (
                 <TouchableOpacity
                   key={bg}
-                  style={[styles.bloodBtn, form.bloodGroup === bg && styles.bloodActive]}
+                  style={[styles.bloodBtn, form.bloodGroup === bg ? styles.bloodActive : undefined]}
                   onPress={() => update('bloodGroup', bg)}
                 >
-                  <Text style={[styles.bloodText, form.bloodGroup === bg && styles.bloodTextActive]}>{bg}</Text>
+                  <Text style={[styles.bloodText, form.bloodGroup === bg ? styles.bloodTextActive : undefined]}>{bg}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>

@@ -20,7 +20,7 @@ export default function AppInput({ label, error, containerStyle, style, ...props
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        style={[styles.input, error && styles.inputError, style]}
+        style={[styles.input, error ? styles.inputError : undefined, style]}
         placeholderTextColor={colors.textSecondary}
         {...props}
       />
