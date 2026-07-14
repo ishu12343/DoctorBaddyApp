@@ -290,7 +290,18 @@ export default function PatientHomeScreen() {
         {appointments.length > 0 ? (
           <>
             <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
-            {appointments.map((appt: Record<string, unknown>, idx: number) => {
+            {appointments
+              .filter((appt: Record<string, unknown>) => {
+                const status = String(appt.status || '').toUpperCase();
+                const apptDate = String(appt.appointment_date || '');
+                const apptTime = String(appt.appointment_time || '');
+                const apptDateTime = new Date(`${apptDate}T${apptTime}`);
+                const now = new Date();
+                // Show only non-cancelled appointments that are in the future or today
+                return status !== 'CANCELLED' && apptDateTime >= now;
+              })
+              .slice(0, 3)
+              .map((appt: Record<string, unknown>, idx: number) => {
               const status = String(appt.status || '').toUpperCase();
               const canCancel = ['PENDING', 'APPROVED'].includes(status);
               const canReschedule = !rescheduledAppts.has(Number(appt.id));

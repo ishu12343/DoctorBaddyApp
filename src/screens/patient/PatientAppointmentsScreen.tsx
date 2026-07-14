@@ -45,6 +45,7 @@ export default function PatientAppointmentsScreen() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'UPCOMING' | 'CONFIRMED' | 'CANCELLED'>('ALL');
   const [rescheduleAppt, setRescheduleAppt] = useState<Appointment | null>(null);
   const [rateAppt, setRateAppt] = useState<Appointment | null>(null);
   const [newDate, setNewDate] = useState('');
@@ -214,10 +215,52 @@ export default function PatientAppointmentsScreen() {
 
   if (loading) return <LoadingSpinner />;
 
+  const filteredAppointments = appointments.filter((appt) => {
+    const status = String(appt.status || '').toUpperCase();
+    const apptDate = String(appt.appointment_date || '');
+    const apptTime = String(appt.appointment_time || '');
+    const apptDateTime = new Date(`${apptDate}T${apptTime}`);
+    const now = new Date();
+
+    switch (selectedFilter) {
+      case 'ALL':
+        return true;
+      case 'UPCOMING':
+        return status !== 'CANCELLED' && apptDateTime >= now;
+      case 'CONFIRMED':
+        return status === 'APPROVED' || status === 'CONFIRMED';
+      case 'CANCELLED':
+        return status === 'CANCELLED';
+      default:
+        return true;
+    }
+  });
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.filterContainer}>
+        {(['ALL', 'UPCOMING', 'CONFIRMED', 'CANCELLED'] as const).map((filter) => (
+          <TouchableOpacity
+            key={filter}
+            style={[
+              styles.filterTab,
+              selectedFilter === filter && styles.filterTabActive,
+            ]}
+            onPress={() => setSelectedFilter(filter)}
+          >
+            <Text
+              style={[
+                styles.filterTabText,
+                selectedFilter === filter && styles.filterTabTextActive,
+              ]}
+            >
+              {filter.charAt(0) + filter.slice(1).toLowerCase()}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <FlatList
-        data={appointments}
+        data={filteredAppointments}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAppointments(); }} colors={[colors.primary]} />}
@@ -456,6 +499,11 @@ export default function PatientAppointmentsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  filterContainer: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
+  filterTab: { flex: 1, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, alignItems: 'center', borderRadius: borderRadius.sm, marginHorizontal: 2 },
+  filterTabActive: { backgroundColor: colors.primary },
+  filterTabText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  filterTabTextActive: { color: colors.white },
   list: { padding: spacing.md, paddingBottom: spacing.xl },
   card: { backgroundColor: colors.white, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
