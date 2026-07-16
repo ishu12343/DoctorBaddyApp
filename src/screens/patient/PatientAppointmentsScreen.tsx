@@ -51,6 +51,7 @@ export default function PatientAppointmentsScreen() {
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
+  const [webDateError, setWebDateError] = useState('');
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -141,21 +142,61 @@ export default function PatientAppointmentsScreen() {
     }
   };
 
+  const normalizeAvailableDays = (raw: any): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+      return raw.map(String).map((t) => t.trim()).filter(Boolean).map((t) => {
+        const v = t.toLowerCase();
+        if (v.startsWith('sun')) return 'Sunday';
+        if (v.startsWith('mon')) return 'Monday';
+        if (v.startsWith('tue')) return 'Tuesday';
+        if (v.startsWith('wed')) return 'Wednesday';
+        if (v.startsWith('thu')) return 'Thursday';
+        if (v.startsWith('fri')) return 'Friday';
+        if (v.startsWith('sat')) return 'Saturday';
+        return t;
+      });
+    }
+
+    const parts = String(raw).split(/[,\s;|\/\\\-]+/).map((s) => s.trim()).filter(Boolean);
+    return parts.map((t) => {
+      const v = t.toLowerCase();
+      if (v.startsWith('sun')) return 'Sunday';
+      if (v.startsWith('mon')) return 'Monday';
+      if (v.startsWith('tue')) return 'Tuesday';
+      if (v.startsWith('wed')) return 'Wednesday';
+      if (v.startsWith('thu')) return 'Thursday';
+      if (v.startsWith('fri')) return 'Friday';
+      if (v.startsWith('sat')) return 'Saturday';
+      return t;
+    });
+  };
+
   const handleDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
-    if (event.type === 'set' && selectedDate) {
-      const date = selectedDate.toISOString().split('T')[0];
+    if (event?.type === 'dismissed') return;
+    let picked = selectedDate;
+    if (!picked && event?.nativeEvent?.timestamp) picked = new Date(event.nativeEvent.timestamp);
+    if (!picked) return;
+
+    if (isDayAvailable(picked)) {
+      const date = picked.toISOString().split('T')[0];
       setNewDate(date);
+    } else {
+      const avail = normalizeAvailableDays(rescheduleAppt?.available_days).length ? normalizeAvailableDays(rescheduleAppt?.available_days).map(d => d.slice(0,3)).join(', ') : String(rescheduleAppt?.available_days || '');
+      Alert.alert('Invalid Date', `Doctor is not available on this day. Available days: ${avail}`);
     }
   };
 
   const isDayAvailable = (date: Date): boolean => {
-    if (!rescheduleAppt?.available_days) return true;
+    const raw = rescheduleAppt?.available_days;
+    if (!raw) return true;
+    const allowed = new Set(normalizeAvailableDays(raw));
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const dayName = dayNames[date.getDay()];
-    return rescheduleAppt.available_days.includes(dayName);
+    return allowed.has(dayName);
   };
 
   const getAvailableDates = (): Date[] => {
@@ -172,11 +213,54 @@ export default function PatientAppointmentsScreen() {
     return dates;
   };
 
+  // Generate time slots between fromTime and toTime (15 minute slots)
+  const generateTimeSlots = (fromTime: string, toTime: string): string[] => {
+    const slots: string[] = [];
+    const [fromHour, fromMin] = fromTime.split(':').map(Number);
+    const [toHour, toMin] = toTime.split(':').map(Number);
+
+    let currentHour = fromHour;
+    let currentMin = fromMin;
+    const toMinutes = toHour * 60 + toMin;
+
+    while (true) {
+      const currentMinutes = currentHour * 60 + currentMin;
+      if (currentMinutes >= toMinutes) break;
+
+      const nextMinutes = currentMinutes + 15;
+      if (nextMinutes > toMinutes) break;
+
+      const nextHour = Math.floor(nextMinutes / 60);
+      const nextMin = nextMinutes % 60;
+
+      const formatTime = (h: number, m: number) => {
+        const period = h >= 12 ? 'pm' : 'am';
+        const hour12 = h % 12 || 12;
+        const minStr = m.toString().padStart(2, '0');
+        return `${hour12}:${minStr}${period}`;
+      };
+
+      const startTime = formatTime(currentHour, currentMin);
+      const endTime = formatTime(nextHour, nextMin);
+      slots.push(`${startTime}-${endTime}`);
+
+      currentHour = nextHour;
+      currentMin = nextMin;
+    }
+
+    return slots;
+  };
+
+  const formatDateDisplay = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    return `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.toLocaleDateString()}`;
+  };
+
   const handleTimeChange = (event: any, selectedTime?: Date) => {
     if (Platform.OS === 'android') {
       setShowTimePicker(false);
     }
-    if (event.type === 'set' && selectedTime) {
+    if (selectedTime) {
       const hours = selectedTime.getHours().toString().padStart(2, '0');
       const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
       const timeStr = `${hours}:${minutes}`;
@@ -321,47 +405,51 @@ export default function PatientAppointmentsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Reschedule Appointment</Text>
+            <Text style={styles.availabilityText}>Available: {normalizeAvailableDays(rescheduleAppt?.available_days).length ? normalizeAvailableDays(rescheduleAppt?.available_days).map(d => d.slice(0,3)).join(', ') : 'Any day'}</Text>
             {Platform.OS === 'web' ? (
               <>
                 <View style={styles.pickerButton}>
                   <Text style={styles.pickerLabel}>New Date:</Text>
-                  <input 
-                    type="date" 
-                    value={newDate} 
+                  <input
+                    type="date"
+                    value={newDate}
                     onChange={(e: any) => {
-                      const selectedDate = new Date(e.target.value);
+                      const val = e.target.value;
+                      const parts = val ? val.split('-').map(Number) : [];
+                      const selectedDate = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(val);
                       if (isDayAvailable(selectedDate)) {
-                        setNewDate(e.target.value);
+                        setNewDate(val);
+                        setWebDateError('');
                       } else {
-                        Alert.alert('Invalid Date', `Doctor is not available on this day. Available days: ${rescheduleAppt?.available_days}`);
+                        const avail = normalizeAvailableDays(rescheduleAppt?.available_days).length ? normalizeAvailableDays(rescheduleAppt?.available_days).map(d => d.slice(0,3)).join(', ') : String(rescheduleAppt?.available_days || '');
+                        setWebDateError(`Doctor is not available on this day. Available: ${avail}`);
                       }
                     }}
                     min={new Date().toISOString().split('T')[0]}
                     style={styles.webInput}
                   />
+                  {webDateError ? <Text style={styles.errorText}>{webDateError}</Text> : null}
                 </View>
-                <View style={styles.pickerButton}>
-                  <Text style={styles.pickerLabel}>New Time:</Text>
-                  <input 
-                    type="time" 
-                    value={newTime} 
-                    onChange={(e: any) => {
-                      const timeStr = e.target.value;
-                      if (rescheduleAppt?.available_from && rescheduleAppt?.available_to) {
-                        const fromTime = parseInt(rescheduleAppt.available_from.replace(':', ''));
-                        const toTime = parseInt(rescheduleAppt.available_to.replace(':', ''));
-                        const selectedTimeNum = parseInt(timeStr.replace(':', ''));
-                        
-                        if (selectedTimeNum < fromTime || selectedTimeNum > toTime) {
-                          Alert.alert('Invalid Time', `Please select a time between ${rescheduleAppt.available_from} and ${rescheduleAppt.available_to}`);
-                          return;
-                        }
-                      }
-                      setNewTime(timeStr);
-                    }}
-                    style={styles.webInput}
-                  />
-                </View>
+
+                {rescheduleAppt?.available_from && rescheduleAppt?.available_to && (
+                  <View style={styles.timeSlotContainer}>
+                    <Text style={styles.timeSlotLabel}>Available Time Slots:</Text>
+                    <View style={styles.timeSlotGrid}>
+                      {generateTimeSlots(String(rescheduleAppt.available_from), String(rescheduleAppt.available_to)).map((slot) => (
+                        <TouchableOpacity
+                          key={slot}
+                          style={[styles.timeSlot, selectedTimeSlot === slot && styles.timeSlotSelected]}
+                          onPress={() => {
+                            setSelectedTimeSlot(slot);
+                            setNewTime(formatTimeSlotTo24Hour(slot));
+                          }}
+                        >
+                          <Text style={[styles.timeSlotText, selectedTimeSlot === slot && styles.timeSlotTextSelected]}>{slot}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </>
             ) : (
               <>
@@ -374,35 +462,30 @@ export default function PatientAppointmentsScreen() {
                     value={newDate ? new Date(newDate) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event: any, date?: Date) => {
-                      if (Platform.OS === 'android') {
-                        setShowDatePicker(false);
-                      }
-                      if (event.type === 'set' && date) {
-                        if (isDayAvailable(date)) {
-                          const dateStr = date.toISOString().split('T')[0];
-                          setNewDate(dateStr);
-                        } else {
-                          Alert.alert('Invalid Date', `Doctor is not available on this day. Available days: ${rescheduleAppt?.available_days}`);
-                        }
-                      }
-                    }}
+                    onChange={handleDateChange}
                     minimumDate={new Date()}
                     style={{ width: '100%' }}
                   />
                 )}
-                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.pickerButton}>
-                  <Text style={styles.pickerLabel}>New Time:</Text>
-                  <Text style={styles.pickerValue}>{newTime || 'Select Time'}</Text>
-                </TouchableOpacity>
-                {showTimePicker && (
-                  <DateTimePicker
-                    value={newTime ? new Date(`2000-01-01T${newTime}`) : new Date()}
-                    mode="time"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleTimeChange}
-                    style={{ width: '100%' }}
-                  />
+
+                {rescheduleAppt?.available_from && rescheduleAppt?.available_to && (
+                  <View style={styles.timeSlotContainer}>
+                    <Text style={styles.timeSlotLabel}>Available Time Slots:</Text>
+                    <View style={styles.timeSlotGrid}>
+                      {generateTimeSlots(String(rescheduleAppt.available_from), String(rescheduleAppt.available_to)).map((slot) => (
+                        <TouchableOpacity
+                          key={slot}
+                          style={[styles.timeSlot, selectedTimeSlot === slot && styles.timeSlotSelected]}
+                          onPress={() => {
+                            setSelectedTimeSlot(slot);
+                            setNewTime(formatTimeSlotTo24Hour(slot));
+                          }}
+                        >
+                          <Text style={[styles.timeSlotText, selectedTimeSlot === slot && styles.timeSlotTextSelected]}>{slot}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
                 )}
               </>
             )}
@@ -529,6 +612,8 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: colors.white, borderTopLeftRadius: borderRadius.lg, borderTopRightRadius: borderRadius.lg, padding: spacing.lg, maxHeight: '80%' },
   modalTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
   modalDoctor: { fontSize: 15, color: colors.primary, marginBottom: spacing.md, marginTop: spacing.xs },
+  availabilityText: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm },
+  errorText: { color: '#FF3B30', marginTop: 6 },
   modalButtons: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   modalBtn: { flex: 1 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md },
@@ -538,4 +623,12 @@ const styles = StyleSheet.create({
   pickerLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
   pickerValue: { fontSize: 14, color: colors.primary },
   webInput: { padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', fontSize: 14, minWidth: 150 },
+  timeSlotContainer: { marginTop: spacing.md },
+  timeSlotLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginBottom: spacing.sm },
+  timeSlotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  dateSlotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  dateSlot: { backgroundColor: colors.background, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.sm, borderWidth: 1, borderColor: '#ddd', marginRight: spacing.sm },
+  dateSlotSelected: { backgroundColor: colors.primary },
+  dateSlotText: { color: colors.text },
+  dateSlotTextSelected: { color: colors.white },
 });

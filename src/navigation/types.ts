@@ -11,7 +11,7 @@ export type PublicStackParamList = {
 
 export type PatientTabParamList = {
   PatientHome: undefined;
-  PatientDoctors: undefined;
+  PatientDoctors: { preselectedDoctor?: Record<string, unknown> };
   PatientAppointments: undefined;
   PatientHealth: undefined;
   PatientProfile: undefined;

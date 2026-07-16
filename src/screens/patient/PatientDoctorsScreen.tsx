@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { patientApi } from '../../services/patientApi';
 import { getErrorMessage } from '../../services/apiClient';
 import AppInput from '../../components/AppInput';
@@ -21,6 +22,7 @@ import EmptyState from '../../components/EmptyState';
 import DoctorCard from '../../components/DoctorCard';
 import { colors, spacing, borderRadius } from '../../constants/theme';
 import { API_BASE_URL } from '../../config/api';
+import { PatientTabParamList } from '../../navigation/types';
 
 interface Doctor {
   id: number;
@@ -41,6 +43,8 @@ interface Doctor {
 }
 
 export default function PatientDoctorsScreen() {
+  const route = useRoute<RouteProp<PatientTabParamList, 'PatientDoctors'>>();
+  const navigation = useNavigation();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -54,6 +58,9 @@ export default function PatientDoctorsScreen() {
   const [booking, setBooking] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
+  const [webDateError, setWebDateError] = useState('');
+  const [validationModal, setValidationModal] = useState({ visible: false, message: '' });
 
   const loadDoctors = useCallback(async () => {
     try {
@@ -102,6 +109,14 @@ export default function PatientDoctorsScreen() {
 
   useEffect(() => { loadDoctors(); }, [loadDoctors]);
 
+  useEffect(() => {
+    if (route.params?.preselectedDoctor) {
+      setSelectedDoctor(route.params.preselectedDoctor as Doctor);
+      // Clear the param after using it
+      navigation.setParams({ preselectedDoctor: undefined });
+    }
+  }, [route.params?.preselectedDoctor, navigation]);
+
   const handleBook = async () => {
     if (!selectedDoctor || !bookDate || !bookTime || !bookReason) {
       Alert.alert('Error', 'Please fill all booking fields');
@@ -120,6 +135,7 @@ export default function PatientDoctorsScreen() {
       setBookDate('');
       setBookTime('');
       setBookReason('');
+      setSelectedTimeSlot('');
     } catch (err) {
       Alert.alert('Error', getErrorMessage(err));
     } finally {
@@ -131,13 +147,21 @@ export default function PatientDoctorsScreen() {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
-    if (event.type === 'set' && selectedDate) {
-      if (isDayAvailable(selectedDate)) {
-        const dateStr = selectedDate.toISOString().split('T')[0];
-        setBookDate(dateStr);
-      } else {
-        Alert.alert('Invalid Date', `Doctor is not available on this day. Available days: ${selectedDoctor?.available_days}`);
-      }
+    // Android may send event.type === 'dismissed'
+    if (event?.type === 'dismissed') return;
+
+    let picked = selectedDate;
+    if (!picked && event?.nativeEvent?.timestamp) {
+      picked = new Date(event.nativeEvent.timestamp);
+    }
+    if (!picked) return;
+
+    if (isDayAvailable(picked)) {
+      const dateStr = picked.toISOString().split('T')[0];
+      setBookDate(dateStr);
+    } else {
+      const avail = normalizeAvailableDays(selectedDoctor?.available_days).length ? normalizeAvailableDays(selectedDoctor?.available_days).map(d => d.slice(0,3)).join(', ') : String(selectedDoctor?.available_days || '');
+      Alert.alert('Invalid Date', `Doctor is not available on this day please select. Available days: ${avail}`);
     }
   };
 
@@ -145,7 +169,7 @@ export default function PatientDoctorsScreen() {
     if (Platform.OS === 'android') {
       setShowTimePicker(false);
     }
-    if (event.type === 'set' && selectedTime) {
+    if (selectedTime) {
       const hours = selectedTime.getHours().toString().padStart(2, '0');
       const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
       const timeStr = `${hours}:${minutes}`;
@@ -165,11 +189,50 @@ export default function PatientDoctorsScreen() {
     }
   };
 
+  const normalizeAvailableDays = (raw: any): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+      return raw.map(String).map((t) => t.trim()).filter(Boolean).map((t) => {
+        const v = t.toLowerCase();
+        if (v.startsWith('sun')) return 'Sunday';
+        if (v.startsWith('mon')) return 'Monday';
+        if (v.startsWith('tue')) return 'Tuesday';
+        if (v.startsWith('wed')) return 'Wednesday';
+        if (v.startsWith('thu')) return 'Thursday';
+        if (v.startsWith('fri')) return 'Friday';
+        if (v.startsWith('sat')) return 'Saturday';
+        return t;
+      });
+    }
+
+    // split on commas, pipes, slashes, dashes or whitespace
+    const parts = String(raw).split(/[,\s;|\/\\\-]+/).map((s) => s.trim()).filter(Boolean);
+    return parts.map((t) => {
+      const v = t.toLowerCase();
+      if (v.startsWith('sun')) return 'Sunday';
+      if (v.startsWith('mon')) return 'Monday';
+      if (v.startsWith('tue')) return 'Tuesday';
+      if (v.startsWith('wed')) return 'Wednesday';
+      if (v.startsWith('thu')) return 'Thursday';
+      if (v.startsWith('fri')) return 'Friday';
+      if (v.startsWith('sat')) return 'Saturday';
+      return t;
+    });
+  };
+
   const isDayAvailable = (date: Date): boolean => {
-    if (!selectedDoctor?.available_days) return true;
+    const raw = selectedDoctor?.available_days;
+    console.log('isDayAvailable - raw available_days:', raw);
+    console.log('isDayAvailable - selected date:', date);
+    console.log('isDayAvailable - date.getDay():', date.getDay());
+    if (!raw) return true;
+    const allowed = new Set(normalizeAvailableDays(raw));
+    console.log('isDayAvailable - normalized allowed days:', allowed);
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const dayName = dayNames[date.getDay()];
-    return selectedDoctor.available_days.includes(dayName);
+    console.log('isDayAvailable - dayName:', dayName);
+    console.log('isDayAvailable - is allowed:', allowed.has(dayName));
+    return allowed.has(dayName);
   };
 
   const formatExperience = (experience: string | number | undefined): string => {
@@ -184,6 +247,78 @@ export default function PatientDoctorsScreen() {
     return experience;
   };
 
+  const generateTimeSlots = (fromTime: string, toTime: string): string[] => {
+    const slots: string[] = [];
+    const [fromHour, fromMin] = fromTime.split(':').map(Number);
+    const [toHour, toMin] = toTime.split(':').map(Number);
+
+    let currentHour = fromHour;
+    let currentMin = fromMin;
+    const toMinutes = toHour * 60 + toMin;
+
+    while (true) {
+      const currentMinutes = currentHour * 60 + currentMin;
+      if (currentMinutes >= toMinutes) break;
+
+      const nextMinutes = currentMinutes + 15;
+      if (nextMinutes > toMinutes) break;
+
+      const nextHour = Math.floor(nextMinutes / 60);
+      const nextMin = nextMinutes % 60;
+
+      const formatTime = (h: number, m: number) => {
+        const period = h >= 12 ? 'pm' : 'am';
+        const hour12 = h % 12 || 12;
+        const minStr = m.toString().padStart(2, '0');
+        return `${hour12}:${minStr}${period}`;
+      };
+
+      const startTime = formatTime(currentHour, currentMin);
+      const endTime = formatTime(nextHour, nextMin);
+      slots.push(`${startTime}-${endTime}`);
+
+      currentHour = nextHour;
+      currentMin = nextMin;
+    }
+
+    return slots;
+  };
+
+  const formatTimeSlotTo24Hour = (slot: string): string => {
+    const [startTime] = slot.split('-');
+    const [time, period] = startTime.replace('pm', '').replace('am', '').split(':');
+    let hour = parseInt(time);
+    const min = parseInt(time.split(':')[1] || '0');
+    
+    if (period === 'pm' && hour !== 12) hour += 12;
+    if (period === 'am' && hour === 12) hour = 0;
+    
+    return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+  };
+
+  // Return available dates (YYYY-MM-DD) for the selected doctor for the next `monthsAhead`
+  const getAvailableDatesForDoctor = (doctor: any, monthsAhead = 3): string[] => {
+    const dates: string[] = [];
+    if (!doctor) return dates;
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setMonth(maxDate.getMonth() + monthsAhead);
+
+    for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
+      // create a copy to avoid mutation issues
+      const copy = new Date(d);
+      if (isDayAvailable(copy)) {
+        dates.push(copy.toISOString().split('T')[0]);
+      }
+    }
+    return dates;
+  };
+
+  const formatDateDisplay = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    return `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.toLocaleDateString()}`;
+  };
+
   const getProfilePhotoUrl = (photo: string | null | undefined): string => {
     if (!photo) {
       return 'https://via.placeholder.com/48';
@@ -195,6 +330,9 @@ export default function PatientDoctorsScreen() {
   };
 
   if (loading) return <LoadingSpinner />;
+
+  const bookingAvailableDays = normalizeAvailableDays(selectedDoctor?.available_days);
+  const bookingAvailableDisplay = bookingAvailableDays.length ? bookingAvailableDays.map(d=>d.slice(0,3)).join(', ') : 'Any day';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -223,6 +361,8 @@ export default function PatientDoctorsScreen() {
             location={item.clinic_address || item.location || item.city || 'N/A'}
             reviews={item.total_reviews || 0}
             onPress={() => setSelectedDoctor(item)}
+            showBookButton={true}
+            onBookNow={() => setSelectedDoctor(item)}
           />
         )}
       />
@@ -232,44 +372,37 @@ export default function PatientDoctorsScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Book Appointment</Text>
             <Text style={styles.modalDoctor}>Dr. {selectedDoctor?.full_name}</Text>
+            <Text style={styles.availabilityText}>Available: {bookingAvailableDisplay}</Text>
             {Platform.OS === 'web' ? (
               <>
                 <View style={styles.pickerButton}>
                   <Text style={styles.pickerLabel}>Date:</Text>
-                  <input 
-                    type="date" 
-                    value={bookDate} 
+                  <input
+                    type="date"
+                    value={bookDate}
                     onChange={(e: any) => {
-                      const selectedDate = new Date(e.target.value);
+                      const val = e.target.value;
+                      console.log('Web date input - val:', val);
+                      const parts = val ? val.split('-').map(Number) : [];
+                      console.log('Web date input - parts:', parts);
+                      const selectedDate = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(val);
+                      console.log('Web date input - selectedDate:', selectedDate);
+                      console.log('Web date input - selectedDoctor:', selectedDoctor);
+                      console.log('Web date input - available_days:', selectedDoctor?.available_days);
                       if (isDayAvailable(selectedDate)) {
-                        setBookDate(e.target.value);
+                        console.log('Web date input - day is available, setting bookDate');
+                        setBookDate(val);
                       } else {
-                        Alert.alert('Invalid Date', `Doctor is not available on this day. Available days: ${selectedDoctor?.available_days}`);
+                        console.log('Web date input - day is NOT available, showing alert');
+                        const avail = normalizeAvailableDays(selectedDoctor?.available_days).length ? normalizeAvailableDays(selectedDoctor?.available_days).map(d=>d.slice(0,3)).join(', ') : String(selectedDoctor?.available_days || '');
+                        if (Platform.OS === 'web') {
+                          window.alert(`Doctor is not available on this day. Available days: ${avail}`);
+                        } else {
+                          Alert.alert('Invalid Date', `Doctor is not available on this day. Available days: ${avail}`);
+                        }
                       }
                     }}
                     min={new Date().toISOString().split('T')[0]}
-                    style={styles.webInput}
-                  />
-                </View>
-                <View style={styles.pickerButton}>
-                  <Text style={styles.pickerLabel}>Time:</Text>
-                  <input 
-                    type="time" 
-                    value={bookTime} 
-                    onChange={(e: any) => {
-                      const timeStr = e.target.value;
-                      if (selectedDoctor?.available_from && selectedDoctor?.available_to) {
-                        const fromTime = parseInt(selectedDoctor.available_from.replace(':', ''));
-                        const toTime = parseInt(selectedDoctor.available_to.replace(':', ''));
-                        const selectedTimeNum = parseInt(timeStr.replace(':', ''));
-                        
-                        if (selectedTimeNum < fromTime || selectedTimeNum > toTime) {
-                          Alert.alert('Invalid Time', `Please select a time between ${selectedDoctor.available_from} and ${selectedDoctor.available_to}`);
-                          return;
-                        }
-                      }
-                      setBookTime(timeStr);
-                    }}
                     style={styles.webInput}
                   />
                 </View>
@@ -290,20 +423,37 @@ export default function PatientDoctorsScreen() {
                     style={{ width: '100%' }}
                   />
                 )}
-                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.pickerButton}>
-                  <Text style={styles.pickerLabel}>Time:</Text>
-                  <Text style={styles.pickerValue}>{bookTime || 'Select Time'}</Text>
-                </TouchableOpacity>
-                {showTimePicker && (
-                  <DateTimePicker
-                    value={bookTime ? new Date(`2000-01-01T${bookTime}`) : new Date()}
-                    mode="time"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleTimeChange}
-                    style={{ width: '100%' }}
-                  />
-                )}
               </>
+            )}
+
+            {selectedDoctor?.available_from && selectedDoctor?.available_to && (
+              <View style={styles.timeSlotContainer}>
+                <Text style={styles.timeSlotLabel}>Available Time Slots:</Text>
+                <View style={styles.timeSlotGrid}>
+                  {generateTimeSlots(selectedDoctor.available_from, selectedDoctor.available_to).map((slot) => (
+                    <TouchableOpacity
+                      key={slot}
+                      style={[
+                        styles.timeSlot,
+                        selectedTimeSlot === slot && styles.timeSlotSelected,
+                      ]}
+                      onPress={() => {
+                        setSelectedTimeSlot(slot);
+                        setBookTime(formatTimeSlotTo24Hour(slot));
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.timeSlotText,
+                          selectedTimeSlot === slot && styles.timeSlotTextSelected,
+                        ]}
+                      >
+                        {slot}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             )}
             <AppInput label="Reason" value={bookReason} onChangeText={setBookReason} multiline />
             <View style={styles.modalButtons}>
@@ -312,6 +462,7 @@ export default function PatientDoctorsScreen() {
                 setBookDate('');
                 setBookTime('');
                 setBookReason('');
+                setSelectedTimeSlot('');
               }} style={styles.modalBtn} />
               <AppButton title="Confirm" onPress={handleBook} loading={booking} style={styles.modalBtn} />
             </View>
@@ -340,4 +491,36 @@ const styles = StyleSheet.create({
   pickerLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
   pickerValue: { fontSize: 14, color: colors.primary },
   webInput: { padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', fontSize: 14, minWidth: 150 },
+  timeSlotContainer: { marginTop: spacing.md },
+  timeSlotLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginBottom: spacing.sm },
+  timeSlotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  dateSlotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  dateSlot: { backgroundColor: colors.background, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: borderRadius.sm, borderWidth: 1, borderColor: '#ddd', marginRight: spacing.sm },
+  dateSlotSelected: { backgroundColor: colors.primary },
+  dateSlotText: { color: colors.text },
+  dateSlotTextSelected: { color: colors.white },
+  availabilityText: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm },
+  errorText: { color: '#FF3B30', marginTop: 6 },
+  timeSlot: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  timeSlotSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  timeSlotText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  timeSlotTextSelected: {
+    color: colors.white,
+  },
 });
