@@ -175,12 +175,12 @@ export default function PatientDoctorsScreen() {
       const timeStr = `${hours}:${minutes}`;
       
       if (selectedDoctor?.available_from && selectedDoctor?.available_to) {
-        const fromTime = parseInt(selectedDoctor.available_from.replace(':', ''));
-        const toTime = parseInt(selectedDoctor.available_to.replace(':', ''));
+        const fromTime = parseInt(selectedDoctor.available_from.trim().replace(':', ''));
+        const toTime = parseInt(selectedDoctor.available_to.trim().replace(':', ''));
         const selectedTimeNum = parseInt(timeStr.replace(':', ''));
-        
+
         if (selectedTimeNum < fromTime || selectedTimeNum > toTime) {
-          Alert.alert('Invalid Time', `Please select a time between ${selectedDoctor.available_from} and ${selectedDoctor.available_to}`);
+          Alert.alert('Invalid Time', `Please select a time between ${selectedDoctor.available_from.trim()} and ${selectedDoctor.available_to.trim()}`);
           return;
         }
       }
@@ -247,14 +247,47 @@ export default function PatientDoctorsScreen() {
     return experience;
   };
 
+  const parseTimeTo24Hour = (timeStr: string): { hour: number; min: number } => {
+    const trimmed = timeStr.trim().toLowerCase();
+    const [timePart, period] = trimmed.split(' ');
+    const [hourStr, minStr] = timePart.split(':');
+    let hour = parseInt(hourStr);
+    const min = parseInt(minStr) || 0;
+
+    // Handle 12-hour format with AM/PM
+    if (period === 'pm' && hour !== 12) hour += 12;
+    if (period === 'am' && hour === 12) hour = 0;
+
+    // If no period specified and hour is less than fromTime, assume PM
+    // This handles cases like "10:00" to "2:00" meaning 10 AM to 2 PM
+    return { hour, min };
+  };
+
   const generateTimeSlots = (fromTime: string, toTime: string): string[] => {
     const slots: string[] = [];
-    const [fromHour, fromMin] = fromTime.split(':').map(Number);
-    const [toHour, toMin] = toTime.split(':').map(Number);
+    const { hour: fromHour, min: fromMin } = parseTimeTo24Hour(fromTime);
+    const { hour: toHour, min: toMin } = parseTimeTo24Hour(toTime);
+
+    // Validate that times are valid numbers
+    if (isNaN(fromHour) || isNaN(fromMin) || isNaN(toHour) || isNaN(toMin)) {
+      console.error('Invalid time format:', { fromTime, toTime });
+      return slots;
+    }
+
+    // If toTime is before fromTime, assume toTime is PM
+    let adjustedToHour = toHour;
+    let adjustedToMin = toMin;
+    const fromMinutes = fromHour * 60 + fromMin;
+    let toMinutes = toHour * 60 + toMin;
+
+    if (toMinutes <= fromMinutes) {
+      // Assume toTime is in the afternoon (add 12 hours)
+      adjustedToHour = toHour + 12;
+      toMinutes = adjustedToHour * 60 + adjustedToMin;
+    }
 
     let currentHour = fromHour;
     let currentMin = fromMin;
-    const toMinutes = toHour * 60 + toMin;
 
     while (true) {
       const currentMinutes = currentHour * 60 + currentMin;

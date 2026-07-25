@@ -325,9 +325,14 @@ export default function PatientAppointmentsScreen() {
       const dateB = new Date(`${String(b.appointment_date)}T${String(b.appointment_time)}`);
       // For UPCOMING, sort ascending (nearest date first)
       // For other filters, sort descending (most recent first)
-      if (selectedFilter === 'UPCOMING') {
-        return dateA.getTime() - dateB.getTime();
-      }
+      // if (selectedFilter === 'UPCOMING') {
+      //   return dateA.getTime() - dateB.getTime();
+      // }
+        if (
+            ['ALL', 'UPCOMING', 'CONFIRMED', 'CANCELLED'].includes(selectedFilter)
+        ) {
+            return dateA.getTime() - dateB.getTime();
+        }
       return dateB.getTime() - dateA.getTime();
     });
 

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "DoctorBuddy",
-    "slug": "doctorbuddy-app",
+    "slug": "doctorbaddy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.ishwar1231steam.doctorbaddy"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,9 +27,17 @@
       [
         "expo-asset",
         {
-          "assets": ["./assets"]
+          "assets": [
+            "./assets"
+          ]
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e64a0e22-3a81-415d-8b2a-ab775b1b06f7"
+      }
+    },
+    "owner": "ishwar1231s-team"
   }
 }
