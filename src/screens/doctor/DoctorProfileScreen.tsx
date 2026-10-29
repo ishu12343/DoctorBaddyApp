@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { doctorApi } from '../../services/doctorApi';
@@ -9,6 +9,7 @@ import AppInput from '../../components/AppInput';
 import AppButton from '../../components/AppButton';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import { API_BASE_URL } from '../../config/api';
 
 export default function DoctorProfileScreen() {
   const { logout } = useAuth();
@@ -16,11 +17,13 @@ export default function DoctorProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [photoPath, setPhotoPath] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     try {
       const res = await doctorApi.getProfile();
       const data = res.data || {};
+      setPhotoPath(data.profile_photo || null);
       setForm({
         full_name: data.full_name || '',
         email: data.email || '',
@@ -51,6 +54,16 @@ export default function DoctorProfileScreen() {
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
   const update = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const getProfilePhotoUrl = (photo: string | null | undefined): string => {
+    if (!photo) {
+      return 'https://via.placeholder.com/80';
+    }
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      return photo;
+    }
+    return `${API_BASE_URL}uploads/${photo}`;
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -97,9 +110,10 @@ export default function DoctorProfileScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Ionicons name="medkit" size={40} color={colors.primary} />
-          </View>
+          <Image
+            source={{ uri: getProfilePhotoUrl(photoPath) }}
+            style={styles.avatar}
+          />
           <Text style={styles.name}>Dr. {form.full_name}</Text>
           <Text style={styles.specialty}>{form.specialty}</Text>
         </View>
@@ -136,7 +150,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl },
   header: { alignItems: 'center', marginBottom: spacing.lg },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#EBF4FF', justifyContent: 'center', alignItems: 'center' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#E5E7EB' },
   name: { fontSize: 22, fontWeight: '700', color: colors.text, marginTop: spacing.md },
   specialty: { fontSize: 14, color: colors.primary, marginTop: 4 },
   card: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.lg, marginBottom: spacing.md },

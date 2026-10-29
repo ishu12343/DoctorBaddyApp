@@ -13,12 +13,12 @@ export const patientApi = {
 
   getProfile: () => apiClient.get('api/patient/profile'),
 
-  updateProfile: async (formData: FormData) => {
+  updateProfile: async (data: Record<string, string | object>) => {
     const token = await AsyncStorage.getItem('token');
-    return apiClient.put('api/patient/updateprofile', formData, {
+    return apiClient.put('api/patient/updateprofile', data, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/json',
       },
     });
   },

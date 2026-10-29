@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import { getErrorMessage } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import { API_BASE_URL } from '../../config/api';
 
 export default function DoctorHomeScreen() {
   const navigation = useNavigation<NavigationProp<DoctorTabParamList>>();
@@ -54,6 +55,16 @@ export default function DoctorHomeScreen() {
     await logout();
   };
 
+  const getProfilePhotoUrl = (photo: string | null | undefined): string => {
+    if (!photo) {
+      return 'https://via.placeholder.com/50';
+    }
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      return photo;
+    }
+    return `${API_BASE_URL}uploads/${photo}`;
+  };
+
   if (loading) return <LoadingSpinner />;
 
   const isPending = profile && !profile.approved;
@@ -79,9 +90,15 @@ export default function DoctorHomeScreen() {
         ) : null}
 
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Dr. {String(profile?.full_name || 'Doctor')}</Text>
-            <Text style={styles.subGreeting}>{String(profile?.specialty || 'Healthcare Professional')}</Text>
+          <View style={styles.headerLeft}>
+            <Image
+              source={{ uri: getProfilePhotoUrl(profile?.profile_photo as string | null | undefined) }}
+              style={styles.profileImage}
+            />
+            <View>
+              <Text style={styles.greeting}>Dr. {String(profile?.full_name || 'Doctor')}</Text>
+              <Text style={styles.subGreeting}>{String(profile?.specialty || 'Healthcare Professional')}</Text>
+            </View>
           </View>
           <TouchableOpacity style={styles.logoutIconButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={24} color={colors.primary} />
@@ -154,6 +171,13 @@ const styles = StyleSheet.create({
   alertError: { backgroundColor: '#FEE2E2' },
   alertText: { fontSize: 14, fontWeight: '600', color: colors.text, flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  profileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E5E7EB',
+  },
   greeting: { fontSize: 26, fontWeight: '800', color: colors.text },
   subGreeting: { fontSize: 15, color: colors.textSecondary, marginTop: 4 },
   logoutIconButton: {

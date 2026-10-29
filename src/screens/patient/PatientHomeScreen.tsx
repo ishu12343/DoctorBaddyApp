@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, TextInput, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, TextInput, Modal, Alert, Platform, Image } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -371,11 +371,17 @@ export default function PatientHomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>
-              Hello, {profile?.full_name || 'Patient'}!
-            </Text>
-            <Text style={styles.subGreeting}>Find your doctor and book appointment</Text>
+          <View style={styles.headerLeft}>
+            <Image
+              source={{ uri: getProfilePhotoUrl(profile?.photo_path) }}
+              style={styles.profileImage}
+            />
+            <View>
+              <Text style={styles.greeting}>
+                Hello, {profile?.full_name || 'Patient'}!
+              </Text>
+              <Text style={styles.subGreeting}>Find your doctor and book appointment</Text>
+            </View>
           </View>
           <TouchableOpacity style={styles.logoutIconButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={24} color={colors.primary} />
@@ -671,6 +677,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  profileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E5E7EB',
+  },
   greeting: { fontSize: 24, fontWeight: '800', color: colors.text },
   subGreeting: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
   logoutIconButton: {

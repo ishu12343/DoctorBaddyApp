@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -10,6 +10,7 @@ import AppInput from '../../components/AppInput';
 import AppButton from '../../components/AppButton';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { colors, spacing, borderRadius } from '../../constants/theme';
+import { API_BASE_URL } from '../../config/api';
 
 export default function PatientProfileScreen() {
   const { logout } = useAuth();
@@ -19,11 +20,14 @@ export default function PatientProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [documentUri, setDocumentUri] = useState<string | null>(null);
   const [documentName, setDocumentName] = useState('');
+  const [documentBase64, setDocumentBase64] = useState<string | null>(null);
+  const [photoPath, setPhotoPath] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     try {
       const res = await patientApi.getProfile();
       const patient = res.data?.patient || {};
+      setPhotoPath(patient.photo_path || null);
       setForm({
         full_name: patient.full_name || '',
         email: patient.email || '',
@@ -48,33 +52,66 @@ export default function PatientProfileScreen() {
 
   const update = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  const getProfilePhotoUrl = (photo: string | null | undefined): string => {
+    if (!photo) {
+      return 'https://via.placeholder.com/80';
+    }
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      return photo;
+    }
+    return `${API_BASE_URL}uploads/${photo}`;
+  };
+
   const pickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
     if (!result.canceled && result.assets[0]) {
       setDocumentUri(result.assets[0].uri);
       setDocumentName(result.assets[0].name);
+      
+      // Convert file to base64
+      try {
+        const response = await fetch(result.assets[0].uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          setDocumentBase64(base64);
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('Error converting file to base64:', error);
+      }
     }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const formData = new FormData();
-      Object.entries(form).forEach(([key, value]) => {
-        formData.append(key, value || '');
-      });
-      if (documentUri) {
-        formData.append('document', {
-          uri: documentUri,
-          name: documentName || 'document',
-          type: 'application/octet-stream',
-        } as unknown as Blob);
+      const updateData: Record<string, string | object> = { ...form };
+      
+      console.log('DEBUG Frontend: Form data:', form);
+      console.log('DEBUG Frontend: documentBase64:', documentBase64 ? documentBase64.substring(0, 50) + '...' : 'null');
+      console.log('DEBUG Frontend: documentName:', documentName);
+      
+      // Add documentPath with base64 if file is selected
+      if (documentBase64) {
+        updateData.documentPath = {
+          [documentName || 'document']: documentBase64
+        };
+        console.log('DEBUG Frontend: documentPath added:', Object.keys(updateData.documentPath));
       }
-      await patientApi.updateProfile(formData);
+      
+      console.log('DEBUG Frontend: Final updateData:', JSON.stringify(updateData, null, 2));
+      
+      await patientApi.updateProfile(updateData);
       Alert.alert('Success', 'Profile updated successfully');
       setEditing(false);
+      setDocumentBase64(null);
+      setDocumentUri(null);
+      setDocumentName('');
       loadProfile();
     } catch (err) {
+      console.error('DEBUG Frontend: Error updating profile:', err);
       Alert.alert('Error', getErrorMessage(err));
     } finally {
       setSaving(false);
@@ -107,9 +144,10 @@ export default function PatientProfileScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={40} color={colors.primary} />
-          </View>
+          <Image
+            source={{ uri: getProfilePhotoUrl(photoPath) }}
+            style={styles.avatar}
+          />
           <Text style={styles.name}>{form.full_name || 'Patient'}</Text>
           <Text style={styles.email}>{form.email}</Text>
         </View>
@@ -159,7 +197,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl },
   header: { alignItems: 'center', marginBottom: spacing.lg },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#EBF4FF', justifyContent: 'center', alignItems: 'center' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#E5E7EB' },
   name: { fontSize: 22, fontWeight: '700', color: colors.text, marginTop: spacing.md },
   email: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
   card: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.lg, marginBottom: spacing.md },
