@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { doctorApi } from '../../services/doctorApi';
 import { getErrorMessage } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
@@ -18,6 +19,9 @@ export default function DoctorProfileScreen() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoPath, setPhotoPath] = useState<string | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoName, setPhotoName] = useState('');
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -55,9 +59,52 @@ export default function DoctorProfileScreen() {
 
   const update = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  const pickPhoto = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: 'image/*' });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+      setPhotoName(result.assets[0].name);
+      
+      // Convert file to base64
+      try {
+        const response = await fetch(result.assets[0].uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          setPhotoBase64(base64);
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('Error converting file to base64:', error);
+      }
+    }
+  };
+
   const getProfilePhotoUrl = (photo: string | null | undefined): string => {
     if (!photo) {
       return 'https://via.placeholder.com/80';
+    }
+    // Handle JSON format with base64 data
+    try {
+      const parsed = JSON.parse(photo);
+      if (typeof parsed === 'object' && parsed !== null) {
+        const values = Object.values(parsed);
+        if (values.length > 0 && typeof values[0] === 'string' && values[0].startsWith('data:')) {
+          console.log('DoctorProfileScreen: Extracted base64 photo from JSON');
+          return values[0];
+        }
+      }
+    } catch (e) {
+      // Not JSON, check for custom format: {filename=data:image/...}
+      if (photo.startsWith('{') && photo.includes('=') && photo.includes('data:')) {
+        const match = photo.match(/=([^}]+)/);
+        if (match && match[1] && match[1].startsWith('data:')) {
+          console.log('DoctorProfileScreen: Extracted base64 photo from custom format');
+          return match[1];
+        }
+      }
+      console.log('DoctorProfileScreen: Photo is not JSON format', photo.substring(0, 50));
     }
     if (photo.startsWith('http://') || photo.startsWith('https://')) {
       return photo;
@@ -68,9 +115,21 @@ export default function DoctorProfileScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await doctorApi.updateProfile(form);
+      const updateData: Record<string, string | object> = { ...form };
+      
+      // Add photoPath with base64 if photo is selected
+      if (photoBase64) {
+        updateData.profile_photo = {
+          [photoName || 'photo']: photoBase64
+        };
+      }
+      
+      await doctorApi.updateProfile(updateData);
       Alert.alert('Success', 'Profile updated successfully');
       setEditing(false);
+      setPhotoBase64(null);
+      setPhotoUri(null);
+      setPhotoName('');
       loadProfile();
     } catch (err) {
       Alert.alert('Error', getErrorMessage(err));
@@ -137,7 +196,15 @@ export default function DoctorProfileScreen() {
             )
           )}
 
-          {editing ? <AppButton title="Save Profile" onPress={handleSave} loading={saving} /> : null}
+          {editing ? (
+            <>
+              <TouchableOpacity style={styles.photoBtn} onPress={pickPhoto}>
+                <Ionicons name="camera" size={20} color={colors.primary} />
+                <Text style={styles.photoText}>{photoName || 'Upload Profile Photo'}</Text>
+              </TouchableOpacity>
+              <AppButton title="Save Profile" onPress={handleSave} loading={saving} />
+            </>
+          ) : null}
         </View>
 
         <AppButton title="Sign Out" variant="danger" onPress={handleLogout} style={styles.logoutBtn} />
@@ -159,5 +226,7 @@ const styles = StyleSheet.create({
   fieldRow: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   fieldLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
   fieldValue: { fontSize: 15, color: colors.text, marginTop: 2 },
+  photoBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.sm, borderStyle: 'dashed', marginBottom: spacing.md },
+  photoText: { color: colors.primary, fontSize: 14 },
   logoutBtn: { marginTop: spacing.sm },
 });

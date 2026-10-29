@@ -63,6 +63,18 @@ export default function PatientHomeScreen() {
     if (!photo) {
       return 'https://via.placeholder.com/48';
     }
+    // Handle JSON format with base64 data
+    try {
+      const parsed = JSON.parse(photo);
+      if (typeof parsed === 'object' && parsed !== null) {
+        const values = Object.values(parsed);
+        if (values.length > 0 && typeof values[0] === 'string' && values[0].startsWith('data:')) {
+          return values[0];
+        }
+      }
+    } catch (e) {
+      // Not JSON, continue with normal processing
+    }
     if (photo.startsWith('http://') || photo.startsWith('https://')) {
       return photo;
     }

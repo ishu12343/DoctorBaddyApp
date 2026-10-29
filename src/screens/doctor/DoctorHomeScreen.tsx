@@ -59,6 +59,27 @@ export default function DoctorHomeScreen() {
     if (!photo) {
       return 'https://via.placeholder.com/50';
     }
+    // Handle JSON format with base64 data
+    try {
+      const parsed = JSON.parse(photo);
+      if (typeof parsed === 'object' && parsed !== null) {
+        const values = Object.values(parsed);
+        if (values.length > 0 && typeof values[0] === 'string' && values[0].startsWith('data:')) {
+          console.log('DoctorHomeScreen: Extracted base64 photo from JSON');
+          return values[0];
+        }
+      }
+    } catch (e) {
+      // Not JSON, check for custom format: {filename=data:image/...}
+      if (photo.startsWith('{') && photo.includes('=') && photo.includes('data:')) {
+        const match = photo.match(/=([^}]+)/);
+        if (match && match[1] && match[1].startsWith('data:')) {
+          console.log('DoctorHomeScreen: Extracted base64 photo from custom format');
+          return match[1];
+        }
+      }
+      console.log('DoctorHomeScreen: Photo is not JSON format', photo.substring(0, 50));
+    }
     if (photo.startsWith('http://') || photo.startsWith('https://')) {
       return photo;
     }
